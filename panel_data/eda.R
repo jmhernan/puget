@@ -1,3 +1,5 @@
+# aws s3 cp s3://hild-datasets/ids_with_record_linkage_pids.csv .
+
 # ==========================================================================
 # Exploratory Data Analysis of linked PHA and HMIS data
 # Data file: ids_with_record_linkage.csv
@@ -69,7 +71,10 @@
 
 	# pid0's
 	linkage %>%
-		filter(pid0 %in% check2[,1])
+		filter(pid0 %in% check2[,1]) %>% head(,3)
+
+	linkage %>%
+		filter(pid0 == "PHA0_30430")
 
 	linkage %>%
 	group_by(pid0) %>%

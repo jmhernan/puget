@@ -351,7 +351,7 @@
 # ==========================================================================
 
 	write.csv(w1, paste0(path,"/Housing/links/WeightedLinks.csv"))
-	write.csv(df_sub, paste0(path,"/Housing/links/PreLinkData.csv"))
+	write.csv(df_sub, paste0("data/Housing/PreLinkData.csv"))
 
 # ==========================================================================
 # End code

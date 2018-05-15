@@ -6,40 +6,243 @@
 # Tim Thomas - t77@uw.edu
 # Start Data: 20180512
 # ==========================================================================
+	rm(list=ls()) #reset
+	options(width = 78)
 
-	options(width = 90)
 	library(colorout)
+	# library(lubridate)
 	library(tidyverse)
 
 # ==========================================================================
 # Data
 # ==========================================================================
 
-	linkage <- data.table::fread("data/HILD/ids_with_record_linkage_pids.csv")
+	links <- data.table::fread("data/HILD/ids_with_record_linkage_pids.csv")
 
 	hmis <- data.table::fread("/home/ubuntu/data/HMIS/puget_preprocessed.csv") %>%
-			mutate(pid0 = paste("HMIS0_",PersonalID,sep=""))
+			mutate(pid0 = paste("HMIS0_",PersonalID,sep=""),
+				   pid1 = paste0("HMIS1_",
+		   		   				 stringr::str_pad(seq(1,nrow(.)),6,pad='0')))
 
 	load("/home/ubuntu/data/Housing/OrganizedData/pha_longitudinal.Rdata")
 
 	pha <- pha_longitudinal %>%
-		   mutate(pid0 = paste("PHA0_",pid, sep = ""))
+		   mutate(pid0 = paste("PHA0_",pid, sep = ""),
+		   		  pid1 = paste0("PHA1_",
+		   		  				stringr::str_pad(seq(1,nrow(.)),6,pad='0')))
 
-	hild <- bind_rows()
+# ==========================================================================
+# Clean
+# ==========================================================================
+	hmis_c <- hmis %>%
+			  mutate(agency = "HMIS",
+			  		 EntryDate = lubridate::ymd(EntryDate),
+			  		 ExitDate = lubridate::ymd(ExitDate),
+			  		 DOB = lubridate::ymd(DOB)) %>%
+			  select(pid0,
+					 lname = LastName,
+					 fname = FirstName,
+					 mname = MiddleName,
+					 dob = DOB,
+					 entry = EntryDate,
+					 exit = ExitDate,
+					 agency)
+
+	pha_c <- pha %>%
+			 mutate(admit_date = lubridate::ymd(admit_date),
+			 		max_date2 = lubridate::ymd(max_date2),
+			 		dob = lubridate::ymd(dob)) %>%
+			 select(pid0,
+					lname = lname_new,
+					fname = fname_new,
+					mname = mname_new,
+					dob,
+					entry = admit_date,
+					exit = max_date2, # max end_date, is this correct?
+					agency = agency_new)
+
+	agency_df <- bind_rows(hmis_c,pha_c) %>%
+				 left_join(., links, by = "pid0")
+
+				 # agency_df <- agency_df %>%
+				 # filter(!grepl("REFUSED",lname.x),
+					# 	!grepl("REFUSED",fname.x),
+					# 	!grepl("ANONYMOUS",lname.x),
+					# 	!grepl("ANONYMOUS",fname.x))
+
+
+	glimpse(agency_df)
+
+# ==========================================================================
+# Summary Statistics
+# ==========================================================================
+
+	links %>%
+	summarise(unique_ind = n_distinct(linkage_PID))
+		# 195692 (unique links) - 229939 (unique pid0) = -34247
+
+# in each program
+	inp <- agency_df %>%
+	select(linkage_PID,agency) %>%
+	na.omit() %>%
+	distinct() %>%
+	group_by(linkage_PID) %>%
+	# filter(n()>1) %>%
+	# arrange(linkage_PID) %>%
+	tidyr::spread(agency, agency, fill = "") %>%
+	mutate(programs = trimws(paste(HMIS,KCHA,SHA, sep = " "))) %>%
+	mutate(programs = ifelse(programs == "HMIS  SHA", "HMIS SHA", programs)) %>%
+	ungroup() %>%
+	data.frame()
+
+	glimpse(inp)
+	data.frame(table(inp$programs))
+
+# hmis before pha
+	agency_df <- left_join(agency_df, inp %>% select(linkage_PID,programs))
+
+	### check ###
+	agency_df %>% filter(linkage_PID == 1) %>% arrange(entry)
+	agency_df %>% filter(linkage_PID == 3) %>% arrange(entry)
+	agency_df %>% filter(linkage_PID == 5) %>% arrange(entry)
+	agency_df %>% filter(linkage_PID == 6) %>% arrange(entry)
+	agency_df %>% filter(linkage_PID == 7) %>% arrange(entry)
+	agency_df %>% filter(linkage_PID == 16) %>% arrange(entry)
+	agency_df %>% filter(linkage_PID == 17) %>% arrange(entry)
+	agency_df %>% filter(linkage_PID == 20) %>% arrange(entry)
+
+
+	order <- agency_df %>%
+			 filter(programs == "HMIS KCHA" |
+		   		 	programs == "HMIS KCHA SHA" |
+		   		 	programs == "HMIS SHA") %>%
+			 select(linkage_PID, entry, agency) %>%
+			 arrange(linkage_PID,entry) %>%
+			 group_by(linkage_PID) %>%
+			 summarize(first = dplyr::first(agency),
+			  		 last = dplyr::last(agency),
+			  		 diff = difftime(last(entry),
+			  		 				 first(entry),
+			  		 				 unit = "days")/365) %>%
+			 mutate(order = paste(first,last,sep = "_"))
+
+	head(order)
+	order.plot <- data.frame(table(order$order))
+
+	ggplot(order, aes(x = order)) +
+	geom_histogram(stat = "count") +
+	theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+# ==========================================================================
+# ==========================================================================
+# ==========================================================================
+#  LEFT OFF HERE
+# ==========================================================================
+# ==========================================================================
+# ==========================================================================
+
+
+
+
+
+
+
+
+	%>% data.frame %>% head(20)
+	### model ###
+	agency_df %>%
+	# ungroup() %>%
+	filter(programs == c("HMIS KCHA", "HMIS KCHA SHA", "HMIS SHA")) %>%
+	# filter(linkage_PID == 16) %>%
+	select(linkage_PID, entry, agency) %>%
+	group_by(linkage_PID) %>%
+	arrange(linkage_PID,entry) %>%
+	# filter(row_number()==1 | row_number()==n()) %>% data.frame() %>% head(50)
+	# ungroup() %>%
+	# group_by(linkage_PID, entry) %>%
+	# summarise(first = first(agency),
+	# 		  last = last(agency),
+	# 		  diff = difftime(last(entry), first(entry), unit = "days")/365) %>%
+
+	mutate(first = first(agency),
+			  last = last(agency),
+			  diff = difftime(last(entry), first(entry), unit = "days")/365) %>%
+	data.frame() %>%
+	head(50)
+
+	# df %>%
+ #   group_by(event) %>%
+ #   summarise(First = first(time),
+ #             Last = last(time) ,
+ #             difference= difftime(last(time), first(time), unit='hour'))
+
+
+
+	group_by(linkage_PID) %>%
+	mutate(in_sha = ifelse(agency == "SHA", 1, 0),
+		   in_kcha = ifelse(agency == "KCHA", 1, 0),
+		   in_hmis = ifelse(agency == "HMIS", 1, 0)) %>%
+	mutate(programs = ifelse(in_sha==1 & in_kcha==1 & in_hmis==0, "sha_kcha",
+					  ifelse(in_sha==1 & in_kcha==0 & in_hmis==1, "sha_hmis",
+					  ifelse(in_sha==0 & in_kcha==1 & in_hmis==1, "kcha_hmis", NA))))
+
+
+
+
+
+	links %>%
+	select(linkage_PID, in_sha) %>%
+	filter(in_sha == TRUE) %>%
+	distinct() %>%
+	dim()
+		# 68459
+
+	links %>%
+	select(linkage_PID, in_kcha) %>%
+	filter(in_kcha == TRUE) %>%
+	distinct() %>%
+	dim()
+		# 84304
+
+	links %>%
+	select(linkage_PID, in_hmis) %>%
+	filter(in_hmis == TRUE) %>%
+	distinct() %>%
+	dim()
+		# 80231
+
+	# program intersections
+
+			 links %>%
+			 # select(pid0, linkage_PID, in_sha) %>%
+			 filter(in_sha == TRUE) %>%
+			 glimpse()
+
 
 # ==========================================================================
 # Checks
 # ==========================================================================
 
-### number of individuals in the linkage ###
-	linkage %>%
+### check that pid1 is right ###
+	hmis %>% filter(pid1 == "HMIS1_200000") %>% glimpse()
+	links %>% filter(pid1 == "HMIS1_200000") %>% glimpse()
+	hmis %>% filter(pid0 == "HMIS0_55213") %>% glimpse()
+	links %>% filter(pid0 == "HMIS0_55213") %>% glimpse()
+	# it's not, going to use pid0 to link old data
+
+	check <- left_join(hmis,links, by = "pid0")
+
+### number of individuals in the links ###
+	links %>%
 		select(linkage_PID) %>%
 		distinct %>%
 		summarise(n())
 	# 203,727 unique individuals
 
 ### number of repeats ###
-	links <- linkage %>%
+	links <- links %>%
 			group_by(linkage_PID) %>%
 			filter(n() >1) %>%
 			arrange(linkage_PID)
@@ -63,20 +266,20 @@
 				27300)
 
 	# pid0's that are located in the above linkage_PID vector
-	check2 <- linkage %>%
+	check2 <- links %>%
 	filter(linkage_PID %in% checks) %>%
 	arrange(linkage_PID) %>%
 	data.frame() %>%
 	select(pid0)
 
 	# pid0's
-	linkage %>%
+	links %>%
 		filter(pid0 %in% check2[,1]) %>% head(,3)
 
-	linkage %>%
+	links %>%
 		filter(pid0 == "PHA0_30430")
 
-	linkage %>%
+	links %>%
 	group_by(pid0) %>%
 	filter(n()>1) %>%
 	summarise(n())
@@ -85,4 +288,30 @@
 # ==========================================================================
 # Summary statistics
 # ==========================================================================
+
+### vin diagram ###
+	# number of links
+
+
+	intersects <- links %>%
+	select(linkage_PID, in_sha:in_hmis) %>%
+	# gather(program, value, in_sha:in_hmis) %>%
+	group_by(linkage_PID) %>%
+	mutate(programs = ifelse(in_sha==TRUE & in_kcha==TRUE & in_hmis==FALSE, "sha_kcha",
+					  ifelse(in_sha==TRUE & in_kcha==FALSE & in_hmis==TRUE, "sha_hmis",
+					  ifelse(in_sha==FALSE & in_kcha==TRUE & in_hmis==TRUE, "kcha_hmis", NA))))
+
+	data.frame(table(intersects$programs)) %>%
+	ungroup() %>%
+	select(programs) %>%
+	group_by(programs) %>%
+	summarise(n())
+
+
+	))
+
+			  kcha_sha = n_distinct,
+			  sha_hmis = ,
+			  kcha_hmis =,
+			  kcha_hmis_sha = )
 

@@ -26,12 +26,10 @@
 # Data pull
 # ==========================================================================
 
-	path <- "/home/ubuntu/data"
-
-	hmis <- fread(paste0(path,"/HMIS/puget_preprocessed.csv")) %>%
+	hmis <- fread("data/HMIS/puget_preprocessed.csv") %>%
 			mutate(pid0 = paste("HMIS0_",PersonalID,sep=""))
 
-	load(paste0(path,"/Housing/OrganizedData/pha_longitudinal.Rdata"))
+	load("data/Housing/OrganizedData/pha_longitudinal.Rdata")
 
 	pha <- pha_longitudinal %>%
 		   mutate(pid0 = paste("PHA0_",pid, sep = ""))
@@ -350,8 +348,8 @@
 # Save file
 # ==========================================================================
 
-	write.csv(w1, paste0(path,"/Housing/links/WeightedLinks.csv"))
-	write.csv(df_sub, paste0("data/Housing/PreLinkData.csv"))
+	write.csv(w1, "data/Housing/links/WeightedLinks.csv")
+	write.csv(df_sub, "data/Housing/links/PreLinkData.csv")
 
 # ==========================================================================
 # End code

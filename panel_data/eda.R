@@ -102,20 +102,22 @@
 	agency_df <- left_join(agency_df, inp %>% select(linkage_PID,programs))
 
 	### check ###
-	agency_df %>% filter(linkage_PID == 1) %>% arrange(entry)
-	agency_df %>% filter(linkage_PID == 3) %>% arrange(entry)
-	agency_df %>% filter(linkage_PID == 5) %>% arrange(entry)
-	agency_df %>% filter(linkage_PID == 6) %>% arrange(entry)
-	agency_df %>% filter(linkage_PID == 7) %>% arrange(entry)
-	agency_df %>% filter(linkage_PID == 16) %>% arrange(entry)
-	agency_df %>% filter(linkage_PID == 17) %>% arrange(entry)
-	agency_df %>% filter(linkage_PID == 20) %>% arrange(entry)
+	# agency_df %>% filter(linkage_PID == 1) %>% arrange(entry)
+	# agency_df %>% filter(linkage_PID == 3) %>% arrange(entry)
+	# agency_df %>% filter(linkage_PID == 5) %>% arrange(entry)
+	# agency_df %>% filter(linkage_PID == 6) %>% arrange(entry)
+	# agency_df %>% filter(linkage_PID == 7) %>% arrange(entry)
+	# agency_df %>% filter(linkage_PID == 16) %>% arrange(entry)
+	# agency_df %>% filter(linkage_PID == 17) %>% arrange(entry)
+	# agency_df %>% filter(linkage_PID == 20) %>% arrange(entry)
 
 
 	order <- agency_df %>%
 			 filter(programs == "HMIS KCHA" |
 		   		 	programs == "HMIS KCHA SHA" |
-		   		 	programs == "HMIS SHA") %>%
+		   		 	programs == "HMIS SHA")
+
+	first_last <- order %>%
 			 select(linkage_PID, entry, agency) %>%
 			 arrange(linkage_PID,entry) %>%
 			 group_by(linkage_PID) %>%
@@ -126,12 +128,29 @@
 			  		 				 unit = "days")/365) %>%
 			 mutate(order = paste(first,last,sep = "_"))
 
-	head(order)
-	order.plot <- data.frame(table(order$order))
+	head(first_last)
 
-	ggplot(order, aes(x = order)) +
+	table(first_last$first,first_last$last)
+	round(prop.table(table(first_last$first,first_last$last)),2) * 100
+
+	x2 <- chisq.test(first_last$first,first_last$last)
+	x2$observed
+
+	first_last.plot <- data.frame(table(first_last$first_last))
+
+	ggplot(first_last, aes(x = first_last)) +
 	geom_histogram(stat = "count") +
 	theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+## Time between episodes
+	order %>%
+	group_by(linkage_PID) %>%
+	arrange(agency) %>%
+	mutate(agency.change=cumsum(c(1, diff(agency) != 0))) %>%
+	glimpse()
+
+
 
 
 
@@ -293,7 +312,7 @@
 	# number of links
 
 
-	intersects <- links %>%
+	intersects <- order %>%
 	select(linkage_PID, in_sha:in_hmis) %>%
 	# gather(program, value, in_sha:in_hmis) %>%
 	group_by(linkage_PID) %>%

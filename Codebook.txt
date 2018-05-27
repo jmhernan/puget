@@ -1,0 +1,28 @@
+# ==========================================================================
+# Codebook
+# Started: 2018.05.27
+# ==========================================================================
+
+Script: housing/merge/HILD_merge.r
+Author: Tim Thomas, t77@uw.edu
+
+	PID's and SSN's
+	pid0 = personal ID from pha and hmis - Alastair's linkage and HMIS ID's
+	pid1 = generated pid by Tim within pha and hmis - unique id for each row
+	pid2 = generated pid by Tim after df merge - unique id for each row
+	ssn_dq =
+	 1 = 9-digit ssn or HMIS dq == 1
+	 2 = less than 9 digits or HMIS dq == 2
+	   3 = NA, all same digit, or HMIS dq == 3
+	ssn  = original ssn
+	ssn1 = ssn quality == 1 and 9 digits
+	dob1 = dob that is not in the list of very frequent (i.e. "bad") DOB's
+			(e.g. 1/1/2010)
+
+# ==========================================================================
+
+Script: puget/panel_data/eda.r
+
+	hh_id = household ID:
+				For PHA, `hhold_id_new` - unique household ID assigned by Alastair.
+				For HMIS, `RelationshipToHoH` - field found in HMIS dataframe

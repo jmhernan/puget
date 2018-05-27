@@ -10,7 +10,7 @@
 	options(width = 78)
 
 	library(colorout)
-	# library(lubridate)
+	library(lubridate)
 	library(tidyverse)
 
 # ==========================================================================
@@ -40,6 +40,7 @@
 			  		 ExitDate = lubridate::ymd(ExitDate),
 			  		 DOB = lubridate::ymd(DOB)) %>%
 			  select(pid0,
+			  		 hh_id = HouseholdID,
 					 lname = LastName,
 					 fname = FirstName,
 					 mname = MiddleName,
@@ -53,6 +54,7 @@
 			 		max_date2 = lubridate::ymd(max_date2),
 			 		dob = lubridate::ymd(dob)) %>%
 			 select(pid0,
+			 		hh_id = hhold_id_new,
 					lname = lname_new,
 					fname = fname_new,
 					mname = mname_new,
@@ -77,25 +79,28 @@
 # Summary Statistics
 # ==========================================================================
 
+### Number of unique links found in the data.
 	links %>%
 	summarise(unique_ind = n_distinct(linkage_PID))
 		# 195692 (unique links) - 229939 (unique pid0) = -34247
 
 # in each program
 	inp <- agency_df %>%
-	select(linkage_PID,agency) %>%
-	na.omit() %>%
-	distinct() %>%
-	group_by(linkage_PID) %>%
-	# filter(n()>1) %>%
-	# arrange(linkage_PID) %>%
-	tidyr::spread(agency, agency, fill = "") %>%
-	mutate(programs = trimws(paste(HMIS,KCHA,SHA, sep = " "))) %>%
-	mutate(programs = ifelse(programs == "HMIS  SHA", "HMIS SHA", programs)) %>%
-	ungroup() %>%
-	data.frame()
+		   select(linkage_PID,agency) %>%
+		   na.omit() %>%
+		   distinct() %>%
+		   group_by(linkage_PID) %>%
+		   # filter(n()>1) %>%
+		   # arrange(linkage_PID) %>%
+		   tidyr::spread(agency, agency, fill = "") %>%
+		   mutate(programs = trimws(paste(HMIS,KCHA,SHA, sep = " "))) %>%
+		   mutate(programs = ifelse(programs == "HMIS  SHA", "HMIS SHA", programs)) %>%
+		   ungroup() %>%
+		   data.frame()
 
 	glimpse(inp)
+
+	# Vinn diagram counts
 	data.frame(table(inp$programs))
 
 # hmis before pha

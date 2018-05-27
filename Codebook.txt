@@ -24,5 +24,6 @@ Author: Tim Thomas, t77@uw.edu
 Script: puget/panel_data/eda.r
 
 	hh_id = household ID:
-				For PHA, `hhold_id_new` - unique household ID assigned by Alastair.
+				For PHA, `hhold_id_new` - unique household ID assigned by
+						Alastair.
 				For HMIS, `RelationshipToHoH` - field found in HMIS dataframe

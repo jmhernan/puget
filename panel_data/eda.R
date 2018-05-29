@@ -84,7 +84,7 @@
 	summarise(unique_ind = n_distinct(linkage_PID))
 		# 195692 (unique links) - 229939 (unique pid0) = -34247
 
-# in each program
+### Venn diagram of individuals in each program
 	inp <- agency_df %>%
 		   select(linkage_PID,agency) %>%
 		   na.omit() %>%
@@ -100,24 +100,53 @@
 
 	glimpse(inp)
 
-	# Vinn diagram counts
+	# Venn diagram counts
 	data.frame(table(inp$programs))
 
+
+### Order of programs ###
+
+	# order <- agency_df %>%
+	# 		  arrange(linkage_PID,entry,exit) %>%
+	# 		  select(linkage_PID,agency) %>%
+	# 		  # na.omit() %>%
+	# 		  distinct() %>%
+	# 		  group_by(linkage_PID) %>%
+	# 		  mutate(programs = paste0(agency, collapse = ".")) %>%
+	# 		  select(linkage_PID,programs) %>%
+	# 		  distinct()
+
+	# head(order)
+	# data.frame(table(order$programs))
+
+### Survival time
+
+	surv <- agency_df %>%
+			arrange(linkage_PID,exit) %>%
+			select(linkage_PID,entry,exit, agency) %>%
+			distinct() %>%
+			group_by(linkage_PID) %>% filter(is.na(entry)) %>% data.frame()
+			mutate(St = exit)
+
+
+
+
+
 # hmis before pha
-	agency_df <- left_join(agency_df, inp %>% select(linkage_PID,programs))
+	prehmis <- left_join(agency_df, inp %>% select(linkage_PID,programs))
 
 	### check ###
-	# agency_df %>% filter(linkage_PID == 1) %>% arrange(entry)
-	# agency_df %>% filter(linkage_PID == 3) %>% arrange(entry)
-	# agency_df %>% filter(linkage_PID == 5) %>% arrange(entry)
-	# agency_df %>% filter(linkage_PID == 6) %>% arrange(entry)
-	# agency_df %>% filter(linkage_PID == 7) %>% arrange(entry)
-	# agency_df %>% filter(linkage_PID == 16) %>% arrange(entry)
-	# agency_df %>% filter(linkage_PID == 17) %>% arrange(entry)
-	# agency_df %>% filter(linkage_PID == 20) %>% arrange(entry)
+	# prehmis %>% filter(linkage_PID == 1) %>% arrange(entry)
+	# prehmis %>% filter(linkage_PID == 3) %>% arrange(entry)
+	# prehmis %>% filter(linkage_PID == 5) %>% arrange(entry)
+	# prehmis %>% filter(linkage_PID == 6) %>% arrange(entry)
+	# prehmis %>% filter(linkage_PID == 7) %>% arrange(entry)
+	# prehmis %>% filter(linkage_PID == 16) %>% arrange(entry)
+	# prehmis %>% filter(linkage_PID == 17) %>% arrange(entry)
+	# prehmis %>% filter(linkage_PID == 20) %>% arrange(entry)
 
 
-	order <- agency_df %>%
+	order <- prehmis %>%
 			 filter(programs == "HMIS KCHA" |
 		   		 	programs == "HMIS KCHA SHA" |
 		   		 	programs == "HMIS SHA")
@@ -157,7 +186,18 @@
 
 
 
+# ==========================================================================
+# Testbed
 
+	test <- agency_df %>%
+			select(linkage_PID, entry, exit, agency) %>%
+			na.omit() %>%
+			arrange(linkage_PID,entry,exit) %>%
+			distinct()
+
+	head(test,50)
+
+# ==========================================================================
 
 # ==========================================================================
 # ==========================================================================

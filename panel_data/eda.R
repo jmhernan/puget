@@ -120,15 +120,14 @@
 	test <- agency_df %>%
 			arrange(linkage_PID,entry) %>%
 			select(linkage_PID, agency) %>%
-			na.omit() %>%
-  			filter(!(linkage_PID == lead(linkage_PID) &
+  			filter(!is.na(linkage_PID),
+  				   !(linkage_PID == lead(linkage_PID) &
   				   agency == lead(agency)) |
   				   is.na(lead(linkage_PID))) %>%
   			group_by(linkage_PID) %>%
   			summarise(order = paste0(agency, collapse = "."))
 
 	data.frame(table(test$order)) %>% arrange(desc(Freq))
-
 
 #
 # Above works!!

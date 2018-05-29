@@ -35,12 +35,18 @@
 # Clean
 # ==========================================================================
 	hmis_c <- hmis %>%
+			  group_by(HouseholdID) %>%
+			  mutate(hh_ct = n()) %>%
+			  ungroup() %>%
 			  mutate(agency = "HMIS",
 			  		 EntryDate = lubridate::ymd(EntryDate),
 			  		 ExitDate = lubridate::ymd(ExitDate),
-			  		 DOB = lubridate::ymd(DOB)) %>%
+			  		 DOB = lubridate::ymd(DOB),
+			  		 RelationshipToHoH = factor(RelationshipToHoH)) %>%
 			  select(pid0,
 			  		 hh_id = HouseholdID,
+			  		 hh_ct,
+			  		 relcode = RelationshipToHoH,
 					 lname = LastName,
 					 fname = FirstName,
 					 mname = MiddleName,
@@ -50,11 +56,17 @@
 					 agency)
 
 	pha_c <- pha %>%
+			 group_by(hhold_id_new) %>%
+			 mutate(hh_ct = n()) %>%
+			 ungroup() %>%
 			 mutate(admit_date = lubridate::ymd(admit_date),
 			 		max_date2 = lubridate::ymd(max_date2),
-			 		dob = lubridate::ymd(dob)) %>%
+			 		dob = lubridate::ymd(dob),
+			 		relcode = factor(relcode)) %>%
 			 select(pid0,
 			 		hh_id = hhold_id_new,
+			 		hh_ct,
+			 		relcode,
 					lname = lname_new,
 					fname = fname_new,
 					mname = mname_new,
@@ -85,7 +97,7 @@
 		# 195692 (unique links) - 229939 (unique pid0) = -34247
 
 ### Venn diagram of individuals in each program
-	inp <- agency_df %>%
+	venn <- agency_df %>%
 		   select(linkage_PID,agency) %>%
 		   na.omit() %>%
 		   distinct() %>%
@@ -98,23 +110,70 @@
 		   ungroup() %>%
 		   data.frame()
 
-	glimpse(inp)
+	glimpse(venn)
 
 	# Venn diagram counts
-	data.frame(table(inp$programs))
+	data.frame(table(venn$programs))
 
 
-### Order of programs ###
+### order of agencies ###
+	test <- agency_df %>%
+			arrange(linkage_PID,entry) %>%
+			select(linkage_PID, agency) %>%
+			na.omit() %>%
+  			filter(!(linkage_PID == lead(linkage_PID) &
+  				   agency == lead(agency)) |
+  				   is.na(lead(linkage_PID))) %>%
+  			group_by(linkage_PID) %>%
+  			summarise(order = paste0(agency, collapse = "."))
 
-	# order <- agency_df %>%
-	# 		  arrange(linkage_PID,entry,exit) %>%
-	# 		  select(linkage_PID,agency) %>%
-	# 		  # na.omit() %>%
-	# 		  distinct() %>%
-	# 		  group_by(linkage_PID) %>%
-	# 		  mutate(programs = paste0(agency, collapse = ".")) %>%
-	# 		  select(linkage_PID,programs) %>%
-	# 		  distinct()
+	data.frame(table(test$order)) %>% arrange(desc(Freq))
+
+
+#
+# Above works!!
+#
+			select(agency) %>%
+			data.frame()
+
+	test %>%
+		group_by(linkage_PID, agency) %>%
+		slice(if(n()>1) 1 else agency)
+
+
+		summarise(first = aggregate(agency, head(1))) %>%
+		head(20)
+cumsum()
+
+
+	# check  <- test[match(unique(test$agency), test$agency),]
+	# head(check)
+
+
+		mutate(order = paste0(agency, collapse = ".")) %>%
+		head(20)
+
+	check <- sort(unique(test$agency))
+
+	check <- test[!duplicated(test$agency),]
+
+			summarise(first = head(agency, 1))
+
+
+
+	glimpse(test)
+	head(test, 20)
+	test %>% filter(linkage_PID == 3)
+
+	order <- agency_df %>%
+			  arrange(linkage_PID,entry,exit) %>%
+			  select(linkage_PID,agency) %>%
+			  # na.omit() %>%
+			  distinct() %>%
+			  group_by(linkage_PID) %>%
+			  mutate(programs = paste0(agency, collapse = ".")) %>%
+			  select(linkage_PID,programs) %>%
+			  distinct()
 
 	# head(order)
 	# data.frame(table(order$programs))
@@ -129,7 +188,7 @@
 			mutate(St = exit)
 
 # hmis before pha
-	prehmis <- left_join(agency_df, inp %>% select(linkage_PID,programs))
+	prehmis <- left_join(agency_df, inp %>% select(linkage_PID,programs)) %>% data.frame()
 
 	### check ###
 	# prehmis %>% filter(linkage_PID == 1) %>% arrange(entry)

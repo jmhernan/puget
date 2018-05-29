@@ -128,10 +128,6 @@
 			group_by(linkage_PID) %>% filter(is.na(entry)) %>% data.frame()
 			mutate(St = exit)
 
-
-
-
-
 # hmis before pha
 	prehmis <- left_join(agency_df, inp %>% select(linkage_PID,programs))
 

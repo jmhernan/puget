@@ -3,6 +3,22 @@
 # Started: 2018.05.27
 # ==========================================================================
 
+PHA: Drawn from form 50058 codes
+
+	relcode (code 3h): relationcode
+		• H = Head of household
+		• S = Spouse
+		• K = Co-head
+		• F = Foster child/adult
+		• Y = Other youth under 18
+		• E = Full-time student 18+
+		• L = Live-in aide
+		• A = Other adult
+
+
+
+# ==========================================================================
+
 Script: housing/merge/HILD_merge.r
 Author: Tim Thomas, t77@uw.edu
 

@@ -71,8 +71,8 @@
 					fname = fname_new,
 					mname = mname_new,
 					dob,
-					entry = admit_date,
-					exit = max_date2, # max end_date, is this correct?
+					entry = startdate,
+					exit = enddate,
 					agency = agency_new)
 
 	agency_df <- bind_rows(hmis_c,pha_c) %>%
@@ -83,7 +83,6 @@
 					# 	!grepl("REFUSED",fname.x),
 					# 	!grepl("ANONYMOUS",lname.x),
 					# 	!grepl("ANONYMOUS",fname.x))
-
 
 	glimpse(agency_df)
 
@@ -117,74 +116,56 @@
 
 
 ### order of agencies ###
-	test <- agency_df %>%
-			arrange(linkage_PID,entry) %>%
+	order <- agency_df %>%
+			arrange(linkage_PID,entry, exit) %>%
 			select(linkage_PID, agency) %>%
   			filter(!is.na(linkage_PID),
   				   !(linkage_PID == lead(linkage_PID) &
   				   agency == lead(agency)) |
   				   is.na(lead(linkage_PID))) %>%
   			group_by(linkage_PID) %>%
-  			summarise(order = paste0(agency, collapse = "."))
+  			summarise(order = paste0(agency, collapse = ".")) %>%
+  			left_join(agency_df,.) %>%
+  			mutate(order = ifelse(is.na(order), paste("CENSORED", agency), order))
 
-	data.frame(table(test$order)) %>% arrange(desc(Freq))
-
-#
-# Above works!!
-#
-			select(agency) %>%
-			data.frame()
-
-	test %>%
-		group_by(linkage_PID, agency) %>%
-		slice(if(n()>1) 1 else agency)
+  	data.frame(table(order$order)) %>% arrange(desc(Freq))
 
 
-		summarise(first = aggregate(agency, head(1))) %>%
-		head(20)
-cumsum()
+### HMIS before PHA
+  	# subset heads of households
+  	heads <- order %>%
+				  filter(str_detect(order, "^HMIS"),
+				  		 order != "HMIS",
+				  		 relcode == "1" | relcode == "H")
 
-
-	# check  <- test[match(unique(test$agency), test$agency),]
-	# head(check)
-
-
-		mutate(order = paste0(agency, collapse = ".")) %>%
-		head(20)
-
-	check <- sort(unique(test$agency))
-
-	check <- test[!duplicated(test$agency),]
-
-			summarise(first = head(agency, 1))
-
-
-
-	glimpse(test)
-	head(test, 20)
-	test %>% filter(linkage_PID == 3)
-
-	order <- agency_df %>%
-			  arrange(linkage_PID,entry,exit) %>%
-			  select(linkage_PID,agency) %>%
-			  # na.omit() %>%
-			  distinct() %>%
-			  group_by(linkage_PID) %>%
-			  mutate(programs = paste0(agency, collapse = ".")) %>%
-			  select(linkage_PID,programs) %>%
-			  distinct()
-
-	# head(order)
-	# data.frame(table(order$programs))
+	data.frame(table(heads$order)) %>% arrange(desc(Freq))
 
 ### Survival time
 
-	surv <- agency_df %>%
-			arrange(linkage_PID,exit) %>%
-			select(linkage_PID,entry,exit, agency) %>%
+	surv <- heads %>%
+			arrange(linkage_PID,entry,exit) %>%
+			select(linkage_PID,entry,exit, agency, order) %>%
 			distinct() %>%
-			group_by(linkage_PID) %>% filter(is.na(entry)) %>% data.frame()
+			group_by(linkage_PID) %>%
 			mutate(St = exit)
+
+# ==========================================================================
+# TESTBED
+	test <-
+
+	surv %>%
+				filter(linkage_PID == 6) %>%
+			mutate(St = exit - lag(entry))
+								# mutate(ahead = lead(entry),
+			# 	   exit = exit,
+			# 	   behinf = lag(entry)) %>%
+			# glimpse()
+# ==========================================================================
+
+
+# ==========================================================================
+# LEFT OFF HERE
+# ==========================================================================
 
 # hmis before pha
 	prehmis <- left_join(agency_df, inp %>% select(linkage_PID,programs)) %>% data.frame()

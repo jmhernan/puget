@@ -11,6 +11,7 @@
 
 	library(colorout)
 	library(lubridate)
+	library(magrittr)
 	library(tidyverse)
 
 # ==========================================================================
@@ -117,7 +118,7 @@
 
 ### order of agencies ###
 	order <- agency_df %>%
-			arrange(linkage_PID,entry, exit) %>%
+			arrange(linkage_PID, entry) %>%
 			select(linkage_PID, agency) %>%
   			filter(!is.na(linkage_PID),
   				   !(linkage_PID == lead(linkage_PID) &
@@ -152,15 +153,103 @@
 # ==========================================================================
 # TESTBED
 	test <-
+sum(2014-06-09,2014-08-15)
+
 
 	surv %>%
+			arrange(linkage_PID,entry) %>%
 				filter(linkage_PID == 6) %>%
-			mutate(St = exit - lag(entry))
-								# mutate(ahead = lead(entry),
-			# 	   exit = exit,
-			# 	   behinf = lag(entry)) %>%
+
+	# get times
+	surv %>%
+			arrange(linkage_PID,entry) %>%
+				filter(linkage_PID == 6 | linkage_PID == 17 | linkage_PID == 20) %>%
+			group_by(linkage_PID, agency) %>%
+			mutate(program.time = exit - entry,
+				   St = entry - lag(exit)) %>%
+			data.frame()
+
+			%>%
+			group_by(agency) %>%
+			summarise(diff = sum(program.time, na.rm = T) + sum(St, na.rm = T))
 			# glimpse()
 # ==========================================================================
+    df <-
+    data.table::fread(
+        "ID entry 		exit       	agency
+         6 	2014-06-09 	2014-06-27	HMIS
+         6 	2014-06-19 	2014-07-05	HMIS
+         6 	2014-07-02 	2014-08-15	HMIS
+         6 	2014-07-02 	2014-08-17	SHA
+         6 	2014-09-08 	2014-09-27	HMIS
+         6 	2016-08-04 	2016-12-31	HMIS
+        17 	2011-06-01 	      <NA>	HMIS
+        17 	2011-06-20 	2013-06-09	KCHA
+        17 	2013-06-10 	2016-05-31	KCHA
+        17 	2016-06-01 	2017-06-01	KCHA
+        20 	2012-08-17 	2013-08-01	HMIS
+        20 	2013-02-18 	2013-04-14	HMIS
+        20 	2013-08-02 	2013-08-03	SHA
+        20 	2014-12-09 	2015-02-17	HMIS
+        20 	2015-09-23 	2015-09-24	HMIS
+        20 	2015-10-01 	2016-06-30	SHA
+        20 	2016-02-03 	2016-04-10	HMIS"
+    	) %>%
+    mutate(entry = ymd(entry),
+    	   exit = ymd(exit))
+
+    # f <- rle(df$agency)
+    # f$lengths
+    # f$values
+
+	df %>%
+	group_by(ID, index = rle(agency) %>%
+						 extract2("lengths") %>%
+				 		 rep(seq_along(.), .)) %>%
+	mutate(first = first(entry),
+		   last = last(exit)) %>%
+	group_by(ID) %>%
+	mutate(st = first - lag(last)) %>%
+	group_by(ID, index) %>%
+	filter(row_number()==1)
+
+
+		st = first(entry) - lag(exit))
+	# Can't double group, it'll only calculate within the group
+	,
+		   st = first(entry))
+
+
+
+which(diff(df$agency))
+
+z <- c(TRUE, TRUE, FALSE, FALSE, TRUE, FALSE, TRUE, TRUE, TRUE)
+rle(z)
+rle(as.character(z))
+print(rle(z), prefix = "..| ")
+
+N <- integer(0)
+stopifnot(x == inverse.rle(rle(x)),
+          identical(N, inverse.rle(rle(N))),
+          z == inverse.rle(rle(z)))
+
+	mutate(count = 1:nrow(df))
+
+n <- 10; nn <- 100
+g <- factor(round(n * runif(n * nn)))
+x <- rnorm(n * nn) + sqrt(as.numeric(g))
+xg <- split(x, g)
+boxplot(xg, col = "lavender", notch = TRUE, varwidth = TRUE)
+sapply(xg, length)
+sapply(xg, mean)
+
+### Calculate 'z-scores' by group (standardize to mean zero, variance one)
+z <- unsplit(lapply(split(x, g), scale), g)
+
+# or
+
+zz <- x
+split(zz, g) <- lapply(split(x, g), scale)
 
 
 # ==========================================================================

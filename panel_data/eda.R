@@ -7,7 +7,7 @@
 # Start Data: 20180512
 # ==========================================================================
 	rm(list=ls()) #reset
-	options(width = 78)
+	# options(width = 78)
 
 	library(colorout)
 	library(lubridate)
@@ -118,6 +118,38 @@
 
 ### order of agencies ###
 	order <- agency_df %>%
+			 mutate(exit = ifelse(is.na(exit), entry, exit),
+			 		exit = as_date(exit)) %>%
+			 arrange(linkage_PID, entry, exit) %>%
+			 select(linkage_PID, relcode, entry, exit, agency) %>%
+			 group_by(linkage_PID) %>%
+			 distinct() %>% # there are several cases with dupe dates
+			 mutate(prog.index = rle(agency) %>%
+			 					 extract2("lengths") %>%
+			 					 rep(seq_along(.), .)) %>%
+			 filter(!is.na(linkage_PID)) %>%
+			 mutate(prog.time = exit - entry,
+		   			prog.diff.time = entry - lag(exit))
+
+
+
+	heads <- order %>%
+			 filter(relcode == "1" | relcode == "H")
+
+# ==========================================================================
+# LEFT OFF
+# ==========================================================================
+
+	gc()
+
+
+	group_by(linkage_PID) %>%
+	select(agency) %>%
+	unique() %>%
+	mutate(prog.order = paste0(agency, collapse = "."))
+
+
+	order <- agency_df %>%
 			arrange(linkage_PID, entry) %>%
 			select(linkage_PID, agency) %>%
   			filter(!is.na(linkage_PID),
@@ -128,47 +160,43 @@
   			summarise(order = paste0(agency, collapse = ".")) %>%
   			left_join(agency_df,.) %>%
   			mutate(order = ifelse(is.na(order), paste("CENSORED", agency), order))
-
+  	#######################################
+  	##### THE ABOVE CAN BE CLEANED UP #####
+  	#######################################
   	data.frame(table(order$order)) %>% arrange(desc(Freq))
 
 
 ### HMIS before PHA
   	# subset heads of households
-  	heads <- order %>%
-				  filter(str_detect(order, "^HMIS"),
-				  		 order != "HMIS",
-				  		 relcode == "1" | relcode == "H")
 
-	data.frame(table(heads$order)) %>% arrange(desc(Freq))
 
-### Survival time
-
-	surv <- heads %>%
-			arrange(linkage_PID,entry,exit) %>%
-			select(linkage_PID,entry,exit, agency, order) %>%
-			distinct() %>%
+	# Pre-HMIS
+	prehmis <-
+			heads %>%
+			select(linkage_PID, entry, exit, agency, order) %>%
 			group_by(linkage_PID) %>%
-			mutate(prog.time = exit - entry)
-
-### Pre program timeline
-	surv %>%
-	# filter(linkage_PID == 6) %>%
-	group_by(linkage_PID) %>% #
-	mutate(index = rle(agency) %>%
-				   extract2("lengths") %>%
-				   rep(seq_along(.), .)) %>%
-	group_by(linkage_PID, index) %>%
-	mutate(first = first(entry),
-		   last = last(exit)) %>%
-	group_by(linkage_PID) %>%
-	mutate(pre.diff = first - lag(last)) %>%
-	group_by(linkage_PID, index) %>%
-	filter(row_number()==1) %>%
-	group_by(linkage_PID) %>%
-	# mutate(order2 = paste0(agency, collapse = ".")) %>%
-	# filter(row_number()!=1) %>%
-	data.frame() %>%
-	head()
+			filter(str_detect(order, "^HMIS"),
+				   order != "HMIS",
+				   linkage_PID == 6 |
+				   linkage_PID == 17|
+				   linkage_PID == 20) %>%
+			arrange(linkage_PID,
+					entry,exit) %>%
+			group_by(linkage_PID) %>%
+			mutate(index = rle(agency) %>%
+						   extract2("lengths") %>%
+						   rep(seq_along(.), .)) %>%
+			group_by(linkage_PID, index) %>%
+			mutate(first = first(entry),
+				   last = last(exit)) %>%
+			group_by(linkage_PID) %>%
+			mutate(prog.time = exit - entry,
+				   pre.diff = first - lag(last)) %>%
+			group_by(linkage_PID, index) %>%
+			filter(row_number()==1) %>%
+			group_by(linkage_PID) %>%
+			data.frame() %>%
+			select(linkage_PID, entry, exit, agency, index, first:pre.diff)
 
 ### This only works for difference between differences in PHA
 

@@ -148,30 +148,52 @@
 			select(linkage_PID,entry,exit, agency, order) %>%
 			distinct() %>%
 			group_by(linkage_PID) %>%
-			mutate(St = exit)
+			mutate(prog.time = exit - entry)
+
+### Pre program timeline
+	surv %>%
+	# filter(linkage_PID == 6) %>%
+	group_by(linkage_PID) %>% #
+	mutate(index = rle(agency) %>%
+				   extract2("lengths") %>%
+				   rep(seq_along(.), .)) %>%
+	group_by(linkage_PID, index) %>%
+	mutate(first = first(entry),
+		   last = last(exit)) %>%
+	group_by(linkage_PID) %>%
+	mutate(pre.diff = first - lag(last)) %>%
+	group_by(linkage_PID, index) %>%
+	filter(row_number()==1) %>%
+	group_by(linkage_PID) %>%
+	# mutate(order2 = paste0(agency, collapse = ".")) %>%
+	# filter(row_number()!=1) %>%
+	data.frame() %>%
+	head()
+
+### This only works for difference between differences in PHA
 
 # ==========================================================================
 # TESTBED
-	test <-
-sum(2014-06-09,2014-08-15)
+# 	test <-
+# sum(2014-06-09,2014-08-15)
 
 
-	surv %>%
-			arrange(linkage_PID,entry) %>%
-				filter(linkage_PID == 6) %>%
+# 	surv %>%
+# 			arrange(linkage_PID,entry) %>%
+# 				filter(linkage_PID == 6) %>%
 
-	# get times
-	surv %>%
-			arrange(linkage_PID,entry) %>%
-				filter(linkage_PID == 6 | linkage_PID == 17 | linkage_PID == 20) %>%
-			group_by(linkage_PID, agency) %>%
-			mutate(program.time = exit - entry,
-				   St = entry - lag(exit)) %>%
-			data.frame()
+# 	# get times
+# 	surv %>%
+# 			arrange(linkage_PID,entry) %>%
+# 				filter(linkage_PID == 6 | linkage_PID == 17 | linkage_PID == 20) %>%
+# 			group_by(linkage_PID, agency) %>%
+# 			mutate(program.time = exit - entry,
+# 				   St = entry - lag(exit)) %>%
+# 			data.frame()
 
-			%>%
-			group_by(agency) %>%
-			summarise(diff = sum(program.time, na.rm = T) + sum(St, na.rm = T))
+# 			%>%
+# 			group_by(agency) %>%
+# 			summarise(diff = sum(program.time, na.rm = T) + sum(St, na.rm = T))
 			# glimpse()
 # ==========================================================================
     df <-
@@ -202,54 +224,13 @@ sum(2014-06-09,2014-08-15)
     # f$lengths
     # f$values
 
-	df %>%
-	group_by(ID, index = rle(agency) %>%
-						 extract2("lengths") %>%
-				 		 rep(seq_along(.), .)) %>%
-	mutate(first = first(entry),
-		   last = last(exit)) %>%
-	group_by(ID) %>%
-	mutate(st = first - lag(last)) %>%
-	group_by(ID, index) %>%
-	filter(row_number()==1)
 
 
-		st = first(entry) - lag(exit))
+		# st = first(entry) - lag(exit))
 	# Can't double group, it'll only calculate within the group
-	,
-		   st = first(entry))
+	# ,
+	# 	   st = first(entry))
 
-
-
-which(diff(df$agency))
-
-z <- c(TRUE, TRUE, FALSE, FALSE, TRUE, FALSE, TRUE, TRUE, TRUE)
-rle(z)
-rle(as.character(z))
-print(rle(z), prefix = "..| ")
-
-N <- integer(0)
-stopifnot(x == inverse.rle(rle(x)),
-          identical(N, inverse.rle(rle(N))),
-          z == inverse.rle(rle(z)))
-
-	mutate(count = 1:nrow(df))
-
-n <- 10; nn <- 100
-g <- factor(round(n * runif(n * nn)))
-x <- rnorm(n * nn) + sqrt(as.numeric(g))
-xg <- split(x, g)
-boxplot(xg, col = "lavender", notch = TRUE, varwidth = TRUE)
-sapply(xg, length)
-sapply(xg, mean)
-
-### Calculate 'z-scores' by group (standardize to mean zero, variance one)
-z <- unsplit(lapply(split(x, g), scale), g)
-
-# or
-
-zz <- x
-split(zz, g) <- lapply(split(x, g), scale)
 
 
 # ==========================================================================

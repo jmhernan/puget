@@ -52,9 +52,11 @@
 					 fname = FirstName,
 					 mname = MiddleName,
 					 dob = DOB,
+
 					 entry = EntryDate,
 					 exit = ExitDate,
-					 agency)
+					 agency,
+					 proj_type = ProjectType)
 
 	pha_c <- pha %>%
 			 group_by(hhold_id_new) %>%
@@ -74,7 +76,8 @@
 					dob,
 					entry = startdate,
 					exit = enddate,
-					agency = agency_new)
+					agency = agency_new,
+					proj_type = prog_type)
 
 	agency_df <- bind_rows(hmis_c,pha_c) %>%
 				 left_join(., links, by = "pid0")
@@ -118,10 +121,10 @@
 
 ### order of agencies ###
 	order <- agency_df %>%
-			 mutate(exit = ifelse(is.na(exit), entry, exit),
-			 		exit = as_date(exit)) %>%
+			 mutate(exit2 = ifelse(is.na(exit), entry, exit),
+			 		exit2 = as_date(exit2)) %>%
 			 arrange(linkage_PID, entry, exit) %>%
-			 select(linkage_PID, relcode, entry, exit, agency) %>%
+			 select(linkage_PID, relcode, entry, exit, exit2, agency, index, proj_type) %>%
 			 group_by(linkage_PID) %>%
 			 distinct() %>% # there are several cases with dupe dates
 			 mutate(prog.index = rle(agency) %>%
@@ -131,10 +134,32 @@
 			 mutate(prog.time = exit - entry,
 		   			prog.diff.time = entry - lag(exit))
 
-
-
 	heads <- order %>%
 			 filter(relcode == "1" | relcode == "H")
+
+	prog.order <- heads %>%
+				  select(linkage_PID, index, agency) %>%
+				  distinct() %>%
+				  group_by(linkage_PID, index) %>%
+				  summarise(prog.order = paste0(agency, collapse = "."))
+
+
+# ==========================================================================
+# Checks
+# ==========================================================================
+	head(data.frame(order), 20)
+
+	left_join(data.frame(table(order %>% ungroup() %>% filter(agency == "HMIS", !is.na(exit)) %>% select(proj_type))), data.frame(table(order %>% ungroup() %>% filter(agency == "HMIS", !is.na(exit)) %>% select(proj_type))), by = "Var1")
+
+	# same date entrance into lagged group
+	check <- heads %>%
+			 mutate(lag.agency = lag(agency)) %>%
+			 filter(entry == lag(entry) & is.na(exit) & lag.agency != "HMIS")
+
+	data.frame(table(check$proj_type))
+	data.frame(table(check$lag.agency))
+
+
 
 # ==========================================================================
 # LEFT OFF

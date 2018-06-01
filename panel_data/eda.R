@@ -124,7 +124,7 @@
 			 mutate(exit2 = ifelse(is.na(exit), entry, exit),
 			 		exit2 = as_date(exit2)) %>%
 			 arrange(linkage_PID, entry, exit) %>%
-			 select(linkage_PID, relcode, entry, exit, exit2, agency, index, proj_type) %>%
+			 select(linkage_PID, relcode, entry, exit, exit2, agency, proj_type) %>%
 			 group_by(linkage_PID) %>%
 			 distinct() %>% # there are several cases with dupe dates
 			 mutate(prog.index = rle(agency) %>%
@@ -138,9 +138,9 @@
 			 filter(relcode == "1" | relcode == "H")
 
 	prog.order <- heads %>%
-				  select(linkage_PID, index, agency) %>%
+				  select(linkage_PID, prog.index, agency) %>%
 				  distinct() %>%
-				  group_by(linkage_PID, index) %>%
+				  group_by(linkage_PID) %>%
 				  summarise(prog.order = paste0(agency, collapse = "."))
 
 

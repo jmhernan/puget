@@ -94,12 +94,16 @@
 # Summary Statistics
 # ==========================================================================
 
-### Number of unique links found in the data.
+#
+#  Number of unique links found in the data.
+#
 	links %>%
 	summarise(unique_ind = n_distinct(linkage_PID))
 		# 195692 (unique links) - 229939 (unique pid0) = -34247
 
-### Venn diagram of individuals in each program
+#
+#  Venn diagram of individuals in each program
+#
 	venn <- agency_df %>%
 		   select(linkage_PID,agency) %>%
 		   na.omit() %>%
@@ -119,11 +123,13 @@
 	data.frame(table(venn$programs))
 
 
-### order of agencies ###
+#
+# order of agencies ###
+#
 	order <- agency_df %>%
 			 mutate(exit2 = ifelse(is.na(exit), entry, exit),
 			 		exit2 = as_date(exit2)) %>%
-			 arrange(linkage_PID, entry, exit) %>%
+			 arrange(linkage_PID, entry, exit2) %>%
 			 select(linkage_PID, relcode, entry, exit, exit2, agency, proj_type) %>%
 			 group_by(linkage_PID) %>%
 			 distinct() %>% # there are several cases with dupe dates
@@ -134,14 +140,108 @@
 			 mutate(prog.time = exit - entry,
 		   			prog.diff.time = entry - lag(exit))
 
-	heads <- order %>%
-			 filter(relcode == "1" | relcode == "H")
-
-	prog.order <- heads %>%
+	prog.order <- order %>%
 				  select(linkage_PID, prog.index, agency) %>%
 				  distinct() %>%
 				  group_by(linkage_PID) %>%
 				  summarise(prog.order = paste0(agency, collapse = "."))
+
+#
+# Program Frequency
+#
+
+	prog.freq <- data.frame(table(prog.order$prog.order))
+
+	heads <- left_join(order, prog.order) %>%
+			 filter(relcode == "1" | relcode == "H") %>%
+			 ungroup()
+
+	head.prog.freq <- heads %>%
+					  select(linkage_PID, prog.order) %>%
+					  distinct()
+
+	head.prog.freq <- data.frame(table(head.prog.freq$prog.order))
+
+	ind.head.prog <- left_join(prog.freq,head.prog.freq, by = "Var1") %>%
+					 rename(Programs = Var1, Ind_Freq = Freq.x, HH_Freq = Freq.y)
+
+#
+# Households with HMIS services before PHA
+#
+
+	pre.hmis <- heads %>%
+				filter(startsWith(prog.order, "HMIS"),
+				   	   prog.order != "HMIS")
+
+	# proportion of households that recieved HMIS services before PHA
+	tot.heads <- heads %>%
+				 select(linkage_PID) %>%
+				 distinct() %>%
+				 summarise(n())
+	hmis.pha <- pre.hmis %>%
+				select(linkage_PID) %>%
+				distinct() %>%
+				summarise(n())
+
+	hmis.sha <- heads %>%
+				filter(startsWith(prog.order, "HMIS.SHA")) %>%
+				select(linkage_PID) %>%
+				distinct() %>%
+				summarise(n())
+
+	hmis.kcha <- heads %>%
+				filter(startsWith(prog.order, "HMIS.KCHA")) %>%
+				select(linkage_PID) %>%
+				distinct() %>%
+				summarise(n())
+
+	hmis.pha/tot.heads
+	hmis.sha/tot.heads
+	hmis.kcha/tot.heads
+
+	# proportion of households that recieved HMIS services after PHA
+
+	post.hmis <- heads %>%
+				 filter(endsWith(prog.order, ".HMIS"),
+						prog.order != "HMIS")
+
+	pha.hmis <- post.hmis %>%
+				select(linkage_PID) %>%
+				distinct() %>%
+				summarise(n())
+
+	sha.hmis <- heads %>%
+				filter(endsWith(prog.order, "SHA.HMIS")) %>%
+				select(linkage_PID) %>%
+				distinct() %>%
+				summarise(n())
+
+	kcha.hmis <- heads %>%
+				 filter(endsWith(prog.order, "KCHA.HMIS")) %>%
+				 select(linkage_PID) %>%
+				 distinct() %>%
+				 summarise(n())
+
+	pha.hmis/tot.heads
+	sha.hmis/tot.heads
+	kcha.hmis/tot.heads
+
+	data.frame(table(hmis.sha$prog.order))
+
+	heads %>%
+	filter(str_detect("^HMIS.SHA",prog.order)) %>%
+	select(linkage_PID) %>%
+	distinct() %>%
+	dim()/pre.hmis %>%
+	select(linkage_PID) %>%
+	distinct() %>%
+	dim()
+
+
+
+
+
+
 
 
 # ==========================================================================
@@ -156,9 +256,21 @@
 			 mutate(lag.agency = lag(agency)) %>%
 			 filter(entry == lag(entry) & is.na(exit) & lag.agency != "HMIS")
 
+	peeps <- (check %>%
+			 select(linkage_PID) %>%
+			 distinct())$linkage_PID
+
+
+	order %>%
+	filter(linkage_PID %in% peeps) %>%
+	data.frame
+
 	data.frame(table(check$proj_type))
 	data.frame(table(check$lag.agency))
 
+	peeps <- order %>%
+			 filter(entry == lag(entry) & is.na(exit) & lag.agency != "HMIS") %>%
+			 select(linkage_PID)
 
 
 # ==========================================================================

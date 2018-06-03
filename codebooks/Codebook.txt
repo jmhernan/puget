@@ -1,9 +1,9 @@
-# ==========================================================================
-# Codebook
-# Started: 2018.05.27
-# ==========================================================================
+# Codebook & Definitions
+### Started: 2018.05.27
 
-PHA: Drawn from form 50058 codes
+---
+
+## PHA: Drawn from form 50058 codes
 
 	relcode (code 3h): relationcode
 		• H = Head of household
@@ -14,30 +14,28 @@ PHA: Drawn from form 50058 codes
 		• E = Full-time student 18+
 		• L = Live-in aide
 		• A = Other adult
+---
 
-
-
-# ==========================================================================
-
-Script: housing/merge/HILD_merge.r
+## Script: housing/merge/HILD_merge.r
 Author: Tim Thomas, t77@uw.edu
 
-	PID's and SSN's
+_PID's and SSN's_
+
 	pid0 = personal ID from pha and hmis - Alastair's linkage and HMIS ID's
 	pid1 = generated pid by Tim within pha and hmis - unique id for each row
 	pid2 = generated pid by Tim after df merge - unique id for each row
 	ssn_dq =
-	 1 = 9-digit ssn or HMIS dq == 1
-	 2 = less than 9 digits or HMIS dq == 2
-	   3 = NA, all same digit, or HMIS dq == 3
+		1 = 9-digit ssn or HMIS dq == 1
+		2 = less than 9 digits or HMIS dq == 2
+		3 = NA, all same digit, or HMIS dq == 3
 	ssn  = original ssn
 	ssn1 = ssn quality == 1 and 9 digits
 	dob1 = dob that is not in the list of very frequent (i.e. "bad") DOB's
 			(e.g. 1/1/2010)
 
-# ==========================================================================
+---
 
-Script: puget/panel_data/eda.r
+## Script: puget/panel_data/eda.r
 
 	hh_id = household ID:
 				For PHA, `hhold_id_new` - unique household ID assigned by
@@ -45,3 +43,8 @@ Script: puget/panel_data/eda.r
 				For HMIS, `RelationshipToHoH` - field found in HMIS dataframe
 	order = the collapsed order of agency
 				"CENSORED [agency]" means there is no extra info on agency
+
+### Definitions
+
+* HMIS.
+	* Some households have a similar entry date to a PHA and NA exit date in HMIS. In many cases, this is labeled as a PH - Housing with services option.

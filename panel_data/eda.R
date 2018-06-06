@@ -32,7 +32,7 @@
 		   		  pid1 = paste0("PHA1_",
 		   		  				stringr::str_pad(seq(1,nrow(.)),6,pad='0')))
 
-	order <- data.table::fread("data/Housing/OrganizedData/ts_ProgramOrder.csv")
+	# order <- data.table::fread("data/Housing/OrganizedData/ts_ProgramOrder.csv")
 	# overlap <- data.table::fread("data/Housing/OrganizedData/ts_overlap.csv")
 
 
@@ -56,7 +56,6 @@
 					 fname = FirstName,
 					 mname = MiddleName,
 					 dob = DOB,
-
 					 entry = EntryDate,
 					 exit = ExitDate,
 					 agency,
@@ -86,14 +85,6 @@
 	agency_df <- bind_rows(hmis_c,pha_c) %>%
 				 left_join(., links %>%
 				 			  select(pid0, pid1, pid2, linkage_PID), by = "pid0")
-
-				 # agency_df <- agency_df %>%
-				 # filter(!grepl("REFUSED",lname.x),
-					# 	!grepl("REFUSED",fname.x),
-					# 	!grepl("ANONYMOUS",lname.x),
-					# 	!grepl("ANONYMOUS",fname.x))
-
-	glimpse(agency_df)
 
 	gc()
 # ==========================================================================
@@ -130,10 +121,12 @@
 # order of agencies ###
 #
 	gc()
-
+	# ==========================================================================
+	# JOSE: think about better ways to improve the below time_to_next_pr, and intersect. How can we improve our understanding of overlap and gaps in events
+	# ==========================================================================
 	order1 <- agency_df %>%
 			 mutate(exit2 = ifelse(is.na(exit), entry, exit),
-			 		exit2 = as_date(exit2)) %>%
+			 		exit2 = as_date(exit2)) %>% #
 			 arrange(linkage_PID, entry, exit2) %>%
 			 select(linkage_PID, relcode, entry, exit, exit2, agency, proj_type) %>%
 			 group_by(linkage_PID) %>%
@@ -143,18 +136,25 @@
 			 					 rep(seq_along(.), .))
 	order2 <- order1 %>%
 			 filter(!is.na(linkage_PID)) %>%
-			 mutate(in_prog_time = exit - entry,
+			 mutate(in_prog_time = exit - entry, # needs work
 					prog_trans = paste(agency, lead(agency), sep = " to "))
 
 	order <- order2 %>%
 		   	 mutate(time_to_next_pr = lead(entry) - exit,
 		   		 	intersect = day(as.period(lubridate::intersect(interval(entry, exit), interval(lead(entry), lead(exit))))))
+		 # Check above for better coding
+
 		   			# mid_prog = ifelse(entry > lag(entry) &
 			 		# 				  exit < lag(exit) &
 			 		# 				  agency != lag(agency),
 			 		# 				  1,
 			 		# 				  0),
 			 		# mid_prog = ifelse(is.na(mid_prog), 0, mid_prog))
+
+
+	# ==========================================================================
+	# JOSE: What other scenerios are we missing in the below code?
+	# ==========================================================================
 	gc()
 	# lin <- c(1,2,3,4,5,6)
 	overlap <- order %>% # filter(linkage_PID %in% lin) %>%

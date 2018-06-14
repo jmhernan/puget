@@ -155,6 +155,15 @@
 	# ==========================================================================
 	# JOSE: What other scenerios are we missing in the below code?
 	# ==========================================================================
+
+	###
+	# TODO (below):
+	# prog_trans - when end date is NA, or there is an end data, define
+	# 	   	 	   whether person is still in the program or if it ended.
+	#
+	# Overlap - there are still a couple NA's popping up.
+	###
+
 	gc()
 	# lin <- c(1,2,3,4,5,6)
 	overlap <- order %>% # filter(linkage_PID %in% lin) %>%

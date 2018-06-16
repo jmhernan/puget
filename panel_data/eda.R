@@ -18,6 +18,12 @@
 # Data
 # ==========================================================================
 
+	# ==========================================================================
+	# TEMP
+	# ==========================================================================
+
+	# load("Temp/180615_temp.RData")
+
 	links <- data.table::fread("data/HILD/ids_with_record_linkage_pids.csv")
 
 	hmis <- data.table::fread("/home/ubuntu/data/HMIS/puget_preprocessed.csv") %>%
@@ -137,7 +143,7 @@
 	order2 <- order1 %>%
 			 filter(!is.na(linkage_PID)) %>%
 			 mutate(in_prog_time = exit - entry, # needs work
-					prog_trans = paste(agency, lead(agency), sep = " to "))
+					prog_trans = ifelse(is.na(lead(agency)), agency, paste(agency, lead(agency), sep = " to "))
 
 	order <- order2 %>%
 		   	 mutate(time_to_next_pr = lead(entry) - exit,
@@ -165,36 +171,46 @@
 	###
 
 	gc()
-	# lin <- c(1,2,3,4,5,6)
-	overlap <- order %>% # filter(linkage_PID %in% lin) %>%
+	lin <- c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19)
+	overlap <- order %>% filter(linkage_PID %in% lin) %>%
 			   group_by(linkage_PID) %>%
-			   mutate(one_day = ifelse(entry == lead(entry) &
-									   is.na(exit),
-									   1,0),
-			   		  one_day_lead = ifelse(lag(one_day) == 1 &
-			   		  						!is.na(lag(entry)), 1, 0),
+			   mutate(lag = ifelse(!is.na(intersect) &
+			   					   !is.na(exit) &
+			   					   !is.na(lead(exit)) &
+ 			   		  			   entry <= lead(entry) &
+			   		  			   exit <= lead(exit) &
+			   		  			   exit >= lead(entry), 1, 0),
+			   		  mid = ifelse(!is.na(intersect) &
+			   		  			   !is.na(exit) &
+			   		  			   !is.na(lag(exit)) &
+			   		  			   !is.na(lag(entry)) &
+			   		  			   !is.na(lead(entry)) &
+			   		  			   lag(entry) <= entry &
+			   		  			   lag(exit) >= exit, 1,0),
+			   		  lead = ifelse(!is.na(lag(entry)) &
+ 			   		  				entry >= lag(entry) &
+			   		  		 		exit >= lag(exit) &
+			   		  		 		entry <= lag(exit), 1, 0),
+			   		  open = ifelse(is.na(exit),1,0),
+			   		  over = ifelse(!is.na(lead(entry)) &
+			   		  				lead(mid)==1, 1,
+			   		  		 ifelse(!is.na(lag(entry)) &
+			   		  		 		lag(open) == 1 &
+			   		  		 		entry >= lag(entry), 1, 0)),
 			   		  solo = ifelse(is.na(intersect) &
-			   						is.na(lag(intersect) &
-			   						one_day == 0 &
-			   						lag(one_day) == 0), 1, 0),
-			   		  lag_overlap = ifelse(exit > lead(entry) &
-			   		  					   !is.na(lead(entry)) &
-			   		  					   one_day == 0, 1,0),
-			   		  mid_overlap = ifelse(!is.na(lag(entry)) &
-			   		  					   one_day == 0 &
-			   		  					   lag(entry) < entry &
-			   		  					   lag(exit) > exit, 1,0),
-			   		  lead_overlap = ifelse(!is.na(lag(entry)) &
-			   		  						lag(exit) > entry &
-			   		  						mid_overlap == 0 &
-			   		  						lag(one_day) == 0, 1,0)
-			   		  ) %>%
+			   		  				lag == 0 &
+			   		  				mid == 0 &
+			   		  				lead == 0 &
+			   		  				over == 0 &
+			   		  				open == 0, 1, 0)) %>%
 			   ungroup()
 
-	options(width = 180)
-	# data.frame(table(overlap$overlap))
-	head(overlap %>% select(-proj_type, -exit2, -relcode, -in_prog_time), 30)
 
+overlap %>% select(-proj_type, -in_prog_time, -prog_trans) %>% data.frame
+
+# ==========================================================================
+# LEFT OFF
+# ==========================================================================
 	prog_order <- order %>%
 				  select(linkage_PID, prog_index, agency) %>%
 				  distinct() %>%
@@ -799,3 +815,7 @@
 			   # mutate(overlap = ifelse(lag(overlap) == "one_day",
 			   # 						   "one_day_leading_overlap",
 			   # 						   overlap))
+
+# ==========================================================================
+# mutating lag and lead overlaps
+# ==========================================================================

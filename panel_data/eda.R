@@ -38,10 +38,6 @@
 		   		  pid1 = paste0("PHA1_",
 		   		  				stringr::str_pad(seq(1,nrow(.)),6,pad='0')))
 
-	# order <- data.table::fread("data/Housing/OrganizedData/ts_ProgramOrder.csv")
-	# overlap <- data.table::fread("data/Housing/OrganizedData/ts_overlap.csv")
-
-
 # ==========================================================================
 # Clean
 # ==========================================================================
@@ -65,7 +61,7 @@
 					 entry = EntryDate,
 					 exit = ExitDate,
 					 agency,
-					 proj_type = ProjectType)
+					 prog_type = ProjectType)
 
 	pha_c <- pha %>%
 			 group_by(hhold_id_new) %>%
@@ -86,7 +82,7 @@
 					entry = startdate,
 					exit = enddate,
 					agency = agency_new,
-					proj_type = prog_type)
+					prog_type = prog_type)
 
 	agency_df <- bind_rows(hmis_c,pha_c) %>%
 				 left_join(., links %>%
@@ -132,9 +128,9 @@
 	# ==========================================================================
 	order1 <- agency_df %>%
 			 mutate(exit2 = ifelse(is.na(exit), entry, exit),
-			 		exit2 = as_date(exit2)) %>% #
-			 arrange(linkage_PID, entry, exit2) %>%
-			 select(linkage_PID, relcode, entry, exit, exit2, agency, proj_type) %>%
+			 		exit2 = as_date(exit2)) %>%
+			 arrange(linkage_PID, entry, exit) %>%
+			 select(linkage_PID, relcode, entry, exit, exit2, agency, prog_type) %>%
 			 group_by(linkage_PID) %>%
 			 distinct() %>% # there are several cases with dupe dates
 			 mutate(prog_index = rle(agency) %>%
@@ -143,17 +139,22 @@
 	order2 <- order1 %>%
 			 filter(!is.na(linkage_PID)) %>%
 			 mutate(in_prog_time = exit - entry, # needs work
-					prog_trans = ifelse(is.na(lead(agency)), agency, paste(agency, lead(agency), sep = " to ")))
+					agency_trans = ifelse(is.na(lead(agency)),
+										agency,
+										paste(agency, lead(agency), sep = " to ")))
 
 	### THIS TAKES A LONG TIME ###
 	system.time(
-	order <- order2 %>%
+	order3 <- order2 %>%
 		   	 mutate(time_to_next_pr = lead(entry) - exit,
-		   		 	intersect = day(
-		   		 					as.period(
-		   		 						lubridate::intersect(
-		   		 							interval(entry, exit),
-		   		 							interval(lag(entry),lag(exit))))))
+		   		 	lag_intersect = day(as.period(
+		   		 							lubridate::intersect(
+		   		 								interval(entry, exit),
+		   		 								interval(lag(entry),lag(exit))))),
+		   	 		lead_intersect = day(as.period(
+		   		 							lubridate::intersect(
+			   		 							interval(entry, exit),
+			   		 							interval(lead(entry),lead(exit))))))
 		   	 )
 
 	# ==========================================================================
@@ -162,140 +163,98 @@
 
 	###
 	# TODO (below):
-	# prog_trans - when end date is NA, or there is an end data, define
+	# agency_trans - when end date is NA, or there is an end data, define
 	# 	   	 	   whether person is still in the program or if it ended.
-	#
-	# Overlap - there are still a couple NA's popping up.
 	###
 
 	gc()
 	lin <- c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19)
-	overlap <- order %>% filter(linkage_PID %in% lin) %>%
+system.time(
+	overlap <- order3 %>%
+					filter(linkage_PID %in% lin) %>%
+					arrange(linkage_PID, entry, exit) %>%
 			   group_by(linkage_PID) %>%
 			   mutate(overlap = int_overlaps(interval(entry,exit),
-											 interval(lag(entry),
-										 			  lag(exit))),
+											 interval(lead(entry),
+										 			  lead(exit))),
 				   	  align = int_aligns(interval(entry,exit),
-										 interval(lag(entry),
-										 		  lag(exit))),
-				   	  lag = ifelse(!is.na(intersect) &
+										 interval(lead(entry),
+										 		  lead(exit))),
+				   	  lag = ifelse(!is.na(lead_intersect) &
 			   					   !is.na(exit) &
 			   					   !is.na(lead(exit)) &
  			   		  			   entry <= lead(entry) &
 			   		  			   exit <= lead(exit) &
-			   		  			   exit > lead(entry), 1, 0),
-			   		  mid = ifelse(!is.na(intersect) &
+			   		  			   exit >= lead(entry), 1, 0),
+			   		  mid = ifelse(!is.na(lag(lead_intersect)) &
 			   		  			   !is.na(exit) &
 			   		  			   !is.na(lag(exit)) &
 			   		  			   !is.na(lag(entry)) &
-			   		  			   !is.na(lead(entry)) &
+			   		  			   # !is.na(lead(entry)) &
 			   		  			   lag(entry) <= entry &
 			   		  			   lag(exit) >= exit, 1,0),
-			   		  lead = ifelse(!is.na(lag(entry)) &
+			   		  lead = ifelse(!is.na(exit) &
+			   		  				!is.na(lag(entry)) &
 			   		  				!is.na(lag(exit)) &
  			   		  				entry >= lag(entry) &
 			   		  		 		exit >= lag(exit) &
-			   		  		 		entry < lag(exit), 1, 0),
+			   		  		 		entry <= lag(exit), 1, 0),
 			   		  open = ifelse(is.na(exit),1,0),
-			   		  over = ifelse(!is.na(lead(entry)) &
+			   		  over = ifelse(lag == 1 |
+			   		  				# lead == 1 |
+			   		  				open == 1, 0,
+			   		  		 ifelse(!is.na(lead(entry)) &
 			   		  				lead(mid)==1, 1,
-			   		  		 ifelse(!is.na(lag(entry)) &
-			   		  		 		lag(open) == 1 &
-			   		  		 		entry >= lag(entry), 1, 0)),
-			   		  	# Over = when over mid or over 1-days
-			   		  solo = ifelse(is.na(intersect) &
+			   		  		 ifelse(!is.na(lead(entry)) &
+			   		  		 		lead(open == 1) &
+			   		  		 		lead(entry) %within% interval(entry,exit), 1,
+			   		  		 ifelse(!is.na(lead(entry)) &
+			   		  		 		!is.na(lag(entry)) &
+			   		  		 		lead(entry) %within% interval(entry,exit) &
+			   		  		 		open == 0 &
+			   		  		 		entry >= lag(entry), 1, 0)))),
+			   		  	# Over = when over mid or over opens
+			   		  solo = ifelse(is.na(lead_intersect) &
 			   		  				lag == 0 &
 			   		  				mid == 0 &
 			   		  				lead == 0 &
 			   		  				over == 0 &
 			   		  				open == 0, 1, 0)) %>%
 			   ungroup()
+	)
 
-overlap %>% select(-proj_type, -exit2) %>% data.frame
+	overlap %>% select(-prog_type, -exit2) %>% data.frame %>% head(200)
 
-# ==========================================================================
-# TESTBED
-	test <- overlap %>%
-			mutate(int = interval(entry,exit)) %>%
-			group_by(linkage_PID) %>%
-			mutate(overlap = int_overlaps(
-								interval(entry,exit),
-										 interval(lag(entry),
-										 		  lag(exit))),
-				   align = int_aligns(
-								interval(entry,exit),
-										 interval(lag(entry),
-										 		  lag(exit))),
-				   lag = ifelse(overlap == T &
-								entry <= lead(entry) &
-								exit <= lead(exit) &
-								exit > lead(entry), 1, 0),
-			   	   mid = ifelse(overlap ==T &
-								lag(entry) <= entry &
-								lag(exit) >= exit, 1,0),
-			   	   lead = ifelse(overlap ==T &
-								 entry >= lag(entry) &
-								 exit >= lag(exit) &
-								 entry < lag(exit), 1, 0),
-			   	   open = ifelse(is.na(exit),1,0),
-			   	   over = ifelse(!is.na(lead(entry)) &
-								 lead(mid)==1, 1,
-			   		      ifelse(!is.na(lag(entry)) &
-								 lag(open) == 1 &
-								 entry >= lag(entry), 1, 0)),
-			   		   # Over = when over mid or over 1-days
-			   	   solo = ifelse(is.na(intersect) &
-								 lag == 0 &
-								 mid == 0 &
-								 lead == 0 &
-								 over == 0 &
-								 open == 0, 1, 0))
-
-
-			group_by(linkage_PID) %>%
-
-
-
-			mutate(t = interval(int_start(entry), int_end(exit))),
-					overlap = int_overlaps(interval(t), interval(lag(t))))
-
-			,
-					int_diff = int_diff(t, lead(t)))
-
-	test %>% select(-proj_type, -prog_trans, -exit2, -entry,-exit) %>% data.frame
- # End TESTBED
-# ==========================================================================
-
-# ==========================================================================
-# LEFT OFF
-# ==========================================================================
-	prog_order <- order %>%
+	agency_order <- order3 %>%
 				  select(linkage_PID, prog_index, agency) %>%
 				  distinct() %>%
 				  group_by(linkage_PID) %>%
-				  summarise(prog_order = paste0(agency, collapse = "."))
+				  summarise(agency_order = paste0(agency, collapse = "."))
 
-	order <- left_join(order,prog_order) %>%
-			 left_join(., overlap %>% select(linkage_PID,one_day:lead_overlap))
-	# write.csv(order, "data/Housing/OrganizedData/ts_ProgramOrder.csv")
-	# write.csv(overlap, "data/Housing/OrganizedData/ts_overlap.csv")
-
+	order <- left_join(overlap,agency_order) %>%
+			 group_by(linkage_PID) %>%
+			 mutate(agency_trans = ifelse(row_number()==n(), agency, agency_trans),
+					lag_agency = lag(agency),
+					lag_prog = lag(prog_type),
+					lead_agency = lead(agency),
+					lead_prog = lead(prog_type),
+					transition = paste0(agency, "::", prog_type, " --> ",lead_agency, "::", lead_prog))
 
 #
 # Program Frequency
 #
 
-	prog.freq <- data.frame(table(prog_order$prog_order))
+	prog.freq <- data.frame(table(agency_order$agency_order))
 
 	heads <- order %>%
 			 filter(relcode == "1" | relcode == "H") %>%
 			 ungroup()
 
 	head.prog.freq <- heads %>%
-					  select(linkage_PID, prog_order) %>%
+					  select(linkage_PID, agency_order) %>%
 					  distinct()
 
-	head.prog.freq <- data.frame(table(head.prog.freq$prog_order))
+	head.prog.freq <- data.frame(table(head.prog.freq$agency_order))
 
 	ind.head.prog <- left_join(prog.freq,head.prog.freq, by = "Var1") %>%
 					 rename(Programs = Var1, Ind_Freq = Freq.x, HH_Freq = Freq.y)
@@ -305,7 +264,7 @@ overlap %>% select(-proj_type, -exit2) %>% data.frame
 #
 
 	pre_hmis <- heads %>%
-				filter(startsWith(prog_order, "HMIS."))
+				filter(startsWith(agency_order, "HMIS."))
 
 	# proportion of households that recieved HMIS services before PHA
 	tot.heads <- heads %>%
@@ -318,13 +277,13 @@ overlap %>% select(-proj_type, -exit2) %>% data.frame
 				summarise(n())
 
 	hmis.sha <- heads %>%
-				filter(startsWith(prog_order, "HMIS.SHA")) %>%
+				filter(startsWith(agency_order, "HMIS.SHA")) %>%
 				select(linkage_PID) %>%
 				distinct() %>%
 				summarise(n())
 
 	hmis.kcha <- heads %>%
-				filter(startsWith(prog_order, "HMIS.KCHA")) %>%
+				filter(startsWith(agency_order, "HMIS.KCHA")) %>%
 				select(linkage_PID) %>%
 				distinct() %>%
 				summarise(n())
@@ -340,7 +299,7 @@ overlap %>% select(-proj_type, -exit2) %>% data.frame
 	# proportion of households that recieved HMIS services after PHA
 
 	post.hmis <- heads %>%
-				 filter(endsWith(prog_order, ".HMIS"))
+				 filter(endsWith(agency_order, ".HMIS"))
 
 	pha.hmis <- post.hmis %>%
 				select(linkage_PID) %>%
@@ -348,13 +307,13 @@ overlap %>% select(-proj_type, -exit2) %>% data.frame
 				summarise(n())
 
 	sha.hmis <- heads %>%
-				filter(endsWith(prog_order, "SHA.HMIS")) %>%
+				filter(endsWith(agency_order, "SHA.HMIS")) %>%
 				select(linkage_PID) %>%
 				distinct() %>%
 				summarise(n())
 
 	kcha.hmis <- heads %>%
-				 filter(endsWith(prog_order, "KCHA.HMIS")) %>%
+				 filter(endsWith(agency_order, "KCHA.HMIS")) %>%
 				 select(linkage_PID) %>%
 				 distinct() %>%
 				 summarise(n())
@@ -364,12 +323,33 @@ overlap %>% select(-proj_type, -exit2) %>% data.frame
 	kcha.hmis/tot.heads
 
 # ==========================================================================
+# By program type
+# ==========================================================================
+	heads2 <- heads %>%
+
+
+	hmis_pha <- heads2 %>%
+	filter(startsWith(agency_order, "HMIS."),
+		   agency_trans == "HMIS to SHA" | agency_trans == "HMIS to KCHA") %>%
+	data.frame()
+
+	hmis_pha_freq <- data.frame(table(hmis_pha$transition)) %>%
+					 arrange(desc(Freq)) %>%
+					 left_join(.,
+					 			heads2 %>%
+					 			ungroup() %>%
+					 			group_by(transition) %>%
+					 			summarise(mean_t_trans = mean(time_to_next_pr, na.rm = T),
+					 					  median_t_trans = median(time_to_next_pr, na.rm = T)),
+					 			by = c("Var1" = "transition"))
+
+# ==========================================================================
 # Time between programs
 # ==========================================================================
 
 	# Time lapse between HMIS to PHA
 
-	head(data.frame(pre_hmis %>% select(-proj_type)), 50)
+	head(data.frame(pre_hmis %>% select(-prog_type)), 50)
 
 	time <- heads %>% select(-V1) %>%
 			group_by(linkage_PID, prog_index) %>%
@@ -382,8 +362,8 @@ overlap %>% select(-proj_type, -exit2) %>% data.frame
 
 	# HMIS.PHA
 	time %>%
-	filter(prog_trans == "HMIS to SHA" |
-		   prog_trans == "HMIS to KCHA" &
+	filter(agency_trans == "HMIS to SHA" |
+		   agency_trans == "HMIS to KCHA" &
 		   solo == 1) %>%
 	select(time_to_next_pr) %>%
 	summary()
@@ -396,17 +376,17 @@ overlap %>% select(-proj_type, -exit2) %>% data.frame
 	sum(heads$mid_prog, na.rm = T) # there are 3254 cases of mid
 								   # programs different from lagged programs
 
-	data.frame(table(heads %>% filter(mid_prog ==1) %>% select(prog_order))) %>% arrange(Freq)
+	data.frame(table(heads %>% filter(mid_prog ==1) %>% select(agency_order))) %>% arrange(Freq)
 
 	# Time laps for people that didn't have mid program events.
 
 	time %>%
 
 	time %>%
-	filter(prog_trans == "HMIS to SHA") %>%
+	filter(agency_trans == "HMIS to SHA") %>%
 	summary()
 
-	ggplot(data = time %>% filter(prog_trans == "HMIS to SHA"),
+	ggplot(data = time %>% filter(agency_trans == "HMIS to SHA"),
 		   aes(time_to_next_pr)) +
 	geom_histogram(stat = "count")
 
@@ -419,7 +399,7 @@ overlap %>% select(-proj_type, -exit2) %>% data.frame
 # ==========================================================================
 	head(data.frame(order), 20)
 
-	left_join(data.frame(table(order %>% ungroup() %>% filter(agency == "HMIS", !is.na(exit)) %>% select(proj_type))), data.frame(table(order %>% ungroup() %>% filter(agency == "HMIS", !is.na(exit)) %>% select(proj_type))), by = "Var1")
+	left_join(data.frame(table(order %>% ungroup() %>% filter(agency == "HMIS", !is.na(exit)) %>% select(prog_type))), data.frame(table(order %>% ungroup() %>% filter(agency == "HMIS", !is.na(exit)) %>% select(prog_type))), by = "Var1")
 
 	# same date entrance into lagged group
 	check <- heads %>%
@@ -435,7 +415,7 @@ overlap %>% select(-proj_type, -exit2) %>% data.frame
 	filter(linkage_PID %in% peeps) %>%
 	data.frame
 
-	data.frame(table(check$proj_type))
+	data.frame(table(check$prog_type))
 	data.frame(table(check$lag.agency))
 
 	peeps <- order %>%
@@ -443,17 +423,13 @@ overlap %>% select(-proj_type, -exit2) %>% data.frame
 			 select(linkage_PID)
 
 
-# ==========================================================================
-# LEFT OFF
-# ==========================================================================
-
 	gc()
 
 
 	group_by(linkage_PID) %>%
 	select(agency) %>%
 	unique() %>%
-	mutate(prog_order = paste0(agency, collapse = "."))
+	mutate(agency_order = paste0(agency, collapse = "."))
 
 
 	order <- agency_df %>%
@@ -885,3 +861,56 @@ overlap %>% select(-proj_type, -exit2) %>% data.frame
 			 		# 				  1,
 			 		# 				  0),
 			 		# mid_prog = ifelse(is.na(mid_prog), 0, mid_prog))
+
+# ==========================================================================
+# TESTBED
+	test <- overlap %>%
+			mutate(int = interval(entry,exit)) %>%
+			group_by(linkage_PID) %>%
+			mutate(overlap = int_overlaps(
+								interval(entry,exit),
+										 interval(lag(entry),
+										 		  lag(exit))),
+				   align = int_aligns(
+								interval(entry,exit),
+										 interval(lag(entry),
+										 		  lag(exit))),
+				   lag = ifelse(overlap == T &
+								entry <= lead(entry) &
+								exit <= lead(exit) &
+								exit > lead(entry), 1, 0),
+			   	   mid = ifelse(overlap ==T &
+								lag(entry) <= entry &
+								lag(exit) >= exit, 1,0),
+			   	   lead = ifelse(overlap ==T &
+								 entry >= lag(entry) &
+								 exit >= lag(exit) &
+								 entry < lag(exit), 1, 0),
+			   	   open = ifelse(is.na(exit),1,0),
+			   	   over = ifelse(!is.na(lead(entry)) &
+								 lead(mid)==1, 1,
+			   		      ifelse(!is.na(lag(entry)) &
+								 lag(open) == 1 &
+								 entry >= lag(entry), 1, 0)),
+			   		   # Over = when over mid or over 1-days
+			   	   solo = ifelse(is.na(intersect) &
+								 lag == 0 &
+								 mid == 0 &
+								 lead == 0 &
+								 over == 0 &
+								 open == 0, 1, 0))
+
+
+			group_by(linkage_PID) %>%
+
+
+
+			mutate(t = interval(int_start(entry), int_end(exit))),
+					overlap = int_overlaps(interval(t), interval(lag(t))))
+
+			,
+					int_diff = int_diff(t, lead(t)))
+
+	test %>% select(-prog_type, -agency_trans, -exit2, -entry,-exit) %>% data.frame
+ # End TESTBED
+# ==========================================================================

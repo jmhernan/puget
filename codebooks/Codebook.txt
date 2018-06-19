@@ -44,7 +44,21 @@ _PID's and SSN's_
 	order = the collapsed order of agency
 				"CENSORED [agency]" means there is no extra info on agency
 
-### Definitions
+## Definitions
 
 * HMIS.
 	* Some households have a similar entry date to a PHA and NA exit date in HMIS. In many cases, this is labeled as a PH - Housing with services option.
+	* Null end dates:
+
+		If a client has no exit date then it can generally be assumed that they are still enrolled in the program.
+
+		Here are the exceptions:
+		If Project Type =
+		·         Day Shelter
+		·         Homelessness Prevention
+		·         Services Only
+		·         Other
+		·         Street Outreach
+		And Project Exit Date is null,  you can construct an exit date by adding 90 days to their Project Start Date or 90 days to their last service date (from the Services.csv) , whichever comes later.
+		We don’t typically construct exit dates for any other program types.
+

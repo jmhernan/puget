@@ -25,21 +25,39 @@
 	# load("data/Housing/temp/180615_temp.RData")
 
 	links <- data.table::fread("data/HILD/ids_with_record_linkage_pids.csv")
+		# Linked data between PHA and HMIS made by Ariel
+		# You can find on the S3 bucket hild-datasets
 
 	hmis <- data.table::fread("/home/ubuntu/data/HMIS/puget_preprocessed.csv") %>%
 			mutate(pid0 = paste("HMIS0_",PersonalID,sep=""),
 				   pid1 = paste0("HMIS1_",
 		   		   				 stringr::str_pad(seq(1,nrow(.)),6,pad='0')))
+		# Located in S# bucket kcdhs/HMIS
 
 	load("/home/ubuntu/data/Housing/OrganizedData/pha_longitudinal.Rdata")
+		# located in hild-datasets/pha_longitudinal.csv
 
 	pha <- pha_longitudinal %>%
-		   mutate(pid0 = paste("PHA0_",pid, sep = ""),
+		   mutate(pid0 = paste("PHA0_",pid, sep = ""), # pid comes from PHA, then pid0 is an id for our purposes
 		   		  pid1 = paste0("PHA1_",
 		   		  				stringr::str_pad(seq(1,nrow(.)),6,pad='0')))
 
+	#=======================================================================
+	# Codebook: PID's and SSN's
+	# pid0 = personal ID from pha and hmis - Alastair's linkage and HMIS ID's
+	# pid1 = generated pid by Tim within pha and hmis - unique id for each row
+	# pid2 = generated pid by Tim after df merge - unique id for each row
+	# ssn_dq =
+	#	 1 = 9-digit ssn or HMIS dq == 1
+	#	 2 = less than 9 digits or HMIS dq == 2
+	#    3 = NA, all same digit, or HMIS dq == 3
+	# ssn  = original ssn
+	# ssn1 = ssn quality == 1 and 9 digits
+	# dob1 = dob that is not in the list of very frequent 1/1 dates
+	#=======================================================================
+
 # ==========================================================================
-# Clean
+# Clean - foundation that can be built
 # ==========================================================================
 	hmis_c <- hmis %>%
 			  group_by(HouseholdID) %>%
@@ -129,13 +147,14 @@
 	order1 <- agency_df %>%
 			 mutate(exit2 = ifelse(is.na(exit), entry, exit),
 			 		exit2 = as_date(exit2)) %>%
+			 	# !!! Relook at exit2 to include the 90 day situation mentioned by Stephanie
 			 arrange(linkage_PID, entry, exit) %>%
 			 select(linkage_PID, relcode, entry, exit, exit2, agency, prog_type) %>%
 			 group_by(linkage_PID) %>%
 			 distinct() %>% # there are several cases with dupe dates
 			 mutate(prog_index = rle(agency) %>%
 			 					 extract2("lengths") %>%
-			 					 rep(seq_along(.), .))
+			 					 rep(seq_along(.), .)) # index changes when there's an agency change
 	order2 <- order1 %>%
 			 filter(!is.na(linkage_PID)) %>%
 			 mutate(in_prog_time = exit - entry, # needs work
@@ -156,18 +175,22 @@
 			   		 							interval(entry, exit),
 			   		 							interval(lead(entry),lead(exit))))))
 		   	 )
+		#!!! Maybe clean up the understanding of
 
 	# ==========================================================================
 	# JOSE: What other scenerios are we missing in the below code?
 	# ==========================================================================
 
-	###
+	### !!!
 	# TODO (below):
 	# agency_trans - when end date is NA, or there is an end data, define
-	# 	   	 	   whether person is still in the program or if it ended.
+	# 	   	 	   whether person is still in the program or if it ended. this gets at stephanys comments
 	###
 
-	gc()
+	gc() # memory dump
+
+	# if you want to work with a subset, un-comment the next three comments
+
 	# lin <- c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19)
 system.time(
 	overlap <- order3 %>%
@@ -181,7 +204,7 @@ system.time(
 										 interval(lead(entry),
 										 		  lead(exit))),
 				   	  lag = ifelse(!is.na(lead_intersect) &
-			   					   !is.na(exit) &
+			   					   !is.na(exit) & # is current exit a 1-day?
 			   					   !is.na(lead(exit)) &
  			   		  			   entry <= lead(entry) &
 			   		  			   exit <= lead(exit) &
@@ -194,8 +217,8 @@ system.time(
 			   		  			   lag(entry) <= entry &
 			   		  			   lag(exit) >= exit, 1,0),
 			   		  lead = ifelse(!is.na(exit) &
-			   		  				!is.na(lag(entry)) &
-			   		  				!is.na(lag(exit)) &
+			   		  				!is.na(lag(entry)) & # is this the first row for this person
+			   		  				!is.na(lag(exit)) & # is prior a 1-day
  			   		  				entry >= lag(entry) &
 			   		  		 		exit >= lag(exit) &
 			   		  		 		entry <= lag(exit), 1, 0),
@@ -203,7 +226,7 @@ system.time(
 			   		  over = ifelse(lag == 1 |
 			   		  				# lead == 1 |
 			   		  				open == 1, 0,
-			   		  		 ifelse(!is.na(lead(entry)) &
+			   		  		 ifelse(!is.na(lead(entry)) & # last row for the person
 			   		  				lead(mid)==1, 1,
 			   		  		 ifelse(!is.na(lead(entry)) &
 			   		  		 		lead(open == 1) &
@@ -220,11 +243,11 @@ system.time(
 			   		  				lead == 0 &
 			   		  				over == 0 &
 			   		  				open == 0, 1, 0)) %>%
-			   ungroup()
+			   ungroup() %>%
+			   rename(agency_trans = prog_trans,
+			   		  prog_type = proj_type)
 	)
 
-	overlap <- overlap %>% rename(agency_trans = prog_trans, prog_type = proj_type)
-	# overlap %>% select(-prog_type, -exit2) %>% data.frame %>% head(200)
 
 	agency_order <- order3 %>%
 				  select(linkage_PID, prog_index, agency) %>%
@@ -232,6 +255,8 @@ system.time(
 				  group_by(linkage_PID) %>%
 				  summarise(agency_order = paste0(agency, collapse = "."))
 
+	# for the purpose of maths, adding lag and lead program
+	# and agency information to create "transition"
 	order <- left_join(overlap,agency_order) %>%
 			 group_by(linkage_PID) %>%
 			 mutate(agency_trans = ifelse(row_number()==n(), agency, agency_trans),
@@ -240,7 +265,12 @@ system.time(
 					lead_agency = lead(agency),
 					lead_prog = lead(prog_type),
 					transition = paste0(agency, "::", prog_type, " --> ",lead_agency, "::", lead_prog))
-	overlap %>% filter(linkage_PID %in% lin) %>% arrange(linkage_PID, entry, exit) %>% data.frame() %>% head(20)
+
+	# overlap %>% filter(linkage_PID %in% lin) %>% arrange(linkage_PID, entry, exit) %>% data.frame() %>% head(20)
+
+# ==========================================================================
+# More descriptives
+# ==========================================================================
 
 #
 # Program Frequency

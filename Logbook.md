@@ -17,3 +17,4 @@
 		And Project Exit Date is null,  you can construct an exit date by
 		adding 90 days to their Project Start Date or 90 days to their last
 		service date (from the Services.csv) , whichever comes later.
+

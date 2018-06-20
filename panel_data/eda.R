@@ -168,11 +168,11 @@
 	###
 
 	gc()
-	lin <- c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19)
+	# lin <- c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19)
 system.time(
 	overlap <- order3 %>%
-					filter(linkage_PID %in% lin) %>%
-					arrange(linkage_PID, entry, exit) %>%
+					# filter(linkage_PID %in% lin) %>%
+					# arrange(linkage_PID, entry, exit) %>%
 			   group_by(linkage_PID) %>%
 			   mutate(overlap = int_overlaps(interval(entry,exit),
 											 interval(lead(entry),
@@ -223,7 +223,8 @@ system.time(
 			   ungroup()
 	)
 
-	overlap %>% select(-prog_type, -exit2) %>% data.frame %>% head(200)
+	overlap <- overlap %>% rename(agency_trans = prog_trans, prog_type = proj_type)
+	# overlap %>% select(-prog_type, -exit2) %>% data.frame %>% head(200)
 
 	agency_order <- order3 %>%
 				  select(linkage_PID, prog_index, agency) %>%
@@ -239,6 +240,7 @@ system.time(
 					lead_agency = lead(agency),
 					lead_prog = lead(prog_type),
 					transition = paste0(agency, "::", prog_type, " --> ",lead_agency, "::", lead_prog))
+	overlap %>% filter(linkage_PID %in% lin) %>% arrange(linkage_PID, entry, exit) %>% data.frame() %>% head(20)
 
 #
 # Program Frequency
@@ -325,12 +327,11 @@ system.time(
 # ==========================================================================
 # By program type
 # ==========================================================================
-	heads2 <- heads %>%
+	heads2 <- heads
 
-
+### HMIS to PHA ###
 	hmis_pha <- heads2 %>%
-	filter(startsWith(agency_order, "HMIS."),
-		   agency_trans == "HMIS to SHA" | agency_trans == "HMIS to KCHA") %>%
+	filter(agency_trans == "HMIS to SHA" | agency_trans == "HMIS to KCHA") %>%
 	data.frame()
 
 	hmis_pha_freq <- data.frame(table(hmis_pha$transition)) %>%
@@ -342,6 +343,32 @@ system.time(
 					 			summarise(mean_t_trans = mean(time_to_next_pr, na.rm = T),
 					 					  median_t_trans = median(time_to_next_pr, na.rm = T)),
 					 			by = c("Var1" = "transition"))
+
+### PHA to HMIS ###
+	pha_hmis <- heads2 %>%
+				filter(agency_trans == "SHA to HMIS" | agency_trans == "KCHA to HMIS") %>%
+				data.frame()
+
+	pha_hmis_freq <- data.frame(table(pha_hmis$transition)) %>%
+					 arrange(desc(Freq)) %>%
+					 left_join(.,
+					 			heads2 %>%
+					 			ungroup() %>%
+					 			group_by(transition) %>%
+					 			summarise(mean_t_trans = mean(time_to_next_pr, na.rm = T),
+					 					  median_t_trans = median(time_to_next_pr, na.rm = T)),
+					 			by = c("Var1" = "transition"))
+	write.csv()
+
+### frequency of HMIS services from PHA ###
+	data.frame(table(pha_hmis$lead_prog)) %>% arrange(desc(Freq))
+
+### frequency of PHA services from HMIS ###
+	data.frame(table(hmis_pha$lead_prog)) %>% arrange(desc(Freq))
+
+# ==========================================================================
+# ***** END WORKING CODE *****
+# ==========================================================================
 
 # ==========================================================================
 # Time between programs
@@ -379,8 +406,6 @@ system.time(
 	data.frame(table(heads %>% filter(mid_prog ==1) %>% select(agency_order))) %>% arrange(Freq)
 
 	# Time laps for people that didn't have mid program events.
-
-	time %>%
 
 	time %>%
 	filter(agency_trans == "HMIS to SHA") %>%

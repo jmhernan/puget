@@ -18,23 +18,17 @@
 # Data
 # ==========================================================================
 
-	# ==========================================================================
-	# TEMP
-	# ==========================================================================
-
-	# load("data/Housing/temp/180615_temp.RData")
-
 	links <- data.table::fread("data/HILD/ids_with_record_linkage_pids.csv")
 		# Linked data between PHA and HMIS made by Ariel
 		# You can find on the S3 bucket hild-datasets
 
-	hmis <- data.table::fread("/home/ubuntu/data/HMIS/puget_preprocessed.csv") %>%
+	hmis <- data.table::fread("data/HMIS/2016/puget_preprocessed.csv") %>%
 			mutate(pid0 = paste("HMIS0_",PersonalID,sep=""),
 				   pid1 = paste0("HMIS1_",
 		   		   				 stringr::str_pad(seq(1,nrow(.)),6,pad='0')))
 		# Located in S# bucket kcdhs/HMIS
 
-	load("/home/ubuntu/data/Housing/OrganizedData/pha_longitudinal.Rdata")
+	load("data/Housing/OrganizedData/pha_longitudinal.Rdata")
 		# located in hild-datasets/pha_longitudinal.csv
 
 	pha <- pha_longitudinal %>%
@@ -165,16 +159,16 @@
 	### THIS TAKES A LONG TIME ###
 	system.time(
 	order3 <- order2 %>%
-		   	 mutate(time_to_next_pr = lead(entry) - exit,
+		   	 mutate(time_to_next_pr = lead(entry) - exit2,
 		   		 	lag_intersect = day(as.period(
 		   		 							lubridate::intersect(
-		   		 								interval(entry, exit),
-		   		 								interval(lag(entry),lag(exit))))),
+		   		 								interval(entry, exit2),
+		   		 								interval(lag(entry),lag(exit2))))),
 		   	 		lead_intersect = day(as.period(
 		   		 							lubridate::intersect(
-			   		 							interval(entry, exit),
-			   		 							interval(lead(entry),lead(exit))))))
-		   	 )
+			   		 							interval(entry, exit2),
+			   		 							interval(lead(entry),lead(exit2)))))
+
 		#!!! Maybe clean up the understanding of
 
 	# ==========================================================================
@@ -243,11 +237,8 @@ system.time(
 			   		  				lead == 0 &
 			   		  				over == 0 &
 			   		  				open == 0, 1, 0)) %>%
-			   ungroup() %>%
-			   rename(agency_trans = prog_trans,
-			   		  prog_type = proj_type)
+			   ungroup()
 	)
-
 
 	agency_order <- order3 %>%
 				  select(linkage_PID, prog_index, agency) %>%

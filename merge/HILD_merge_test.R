@@ -26,10 +26,12 @@
 # Data pull
 # ==========================================================================
 
-	hmis <- fread("data/HMIS/puget_preprocessed.csv") %>%
+	path <- "/home/ubuntu/data"
+
+	hmis <- fread(paste0(path,"/HMIS/puget_preprocessed.csv")) %>%
 			mutate(pid0 = paste("HMIS0_",PersonalID,sep=""))
 
-	load("data/Housing/OrganizedData/pha_longitudinal.Rdata")
+	load(paste0(path,"/Housing/OrganizedData/pha_longitudinal.Rdata"))
 
 	pha <- pha_longitudinal %>%
 		   mutate(pid0 = paste("PHA0_",pid, sep = ""))
@@ -318,6 +320,34 @@
 			1-(prod((1-p)^w))^(1/sum(w))
 		}
 
+# ==========================================================================
+# TESTBED - improve weighted product
+# ==========================================================================
+link %>%
+	slice(1) %>%
+
+
+	wtp(
+		p = c(0.63, 0.00,0.52),
+		w = c(1,.8,.8))
+
+	prod(1-p)
+	(1-0.63)*(1-0.00)*(1-0.52)
+
+	prod((1-p)^w)
+	(1-0.63)^1*(1-0.00)^.8*(1-0.52)^.8
+
+	1/sum(w)
+
+	prod((1-p)^w)^(1/sum(w))
+	((1-0.63)^1*(1-0.00)^.8*(1-0.52)^.8)^(1/sum(w))
+
+	1-(prod((1-p)^w)^(1/sum(w)))
+	1-(((1-0.63)^1*(1-0.00)^.8*(1-0.52)^.8)^(1/sum(w)))
+# ==========================================================================
+# End TESTBED
+# ==========================================================================
+
 ### Different weighting scenerios
 	w1 <- link %>%
 		mutate(wtp1111 = apply( # apply function across rows
@@ -348,9 +378,20 @@
 # Save file
 # ==========================================================================
 
-	write.csv(w1, "data/Housing/links/WeightedLinks.csv")
-	write.csv(df_sub, "data/Housing/links/PreLinkData.csv")
+	write.csv(w1, paste0(path,"/Housing/links/WeightedLinks.csv"))
+	write.csv(df_sub, paste0(path,"/Housing/links/PreLinkData.csv"))
 
 # ==========================================================================
 # End code
+# ==========================================================================
+
+# ==========================================================================
+# TESTBED - test record linkage
+# ==========================================================================
+
+
+	# https://github.com/arokem/puget/blob/f8217790b7b1928f52b237ebff7cb522a9611cb3/puget/tests/test_recordlinkage.py
+
+# ==========================================================================
+# END TESTBED
 # ==========================================================================

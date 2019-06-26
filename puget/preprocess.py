@@ -208,11 +208,6 @@ def read_table(file_spec, county=None, data_dir=None, paths=None,
     for col in df.columns:
         if col.startswith('\ufeff'):
             df.rename(columns={col: col[1:]}, inplace=True)
-    
-    # New data has different column names
-    for col in df.columns:
-        if col.startswith('EnrollmentID'):
-            df.rename(columns={col: 'PrejectEntryID'}, inplace=True)
 
     # Drop unnecessary columns
     cols_drop_use = list(set(columns_to_drop).intersection(set(df.columns)))
